@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'dart:async';
+import 'dart:io';
 
 // TODO: Set your computer's LAN IP address here for physical device testing
 const String backendBaseUrl =
@@ -329,6 +330,139 @@ class AuthService extends ChangeNotifier {
       throw 'Request timed out';
     } catch (e) {
       throw 'Error changing password: ${e.toString()}';
+    }
+  }
+
+  /// Test backend connectivity
+  Future<bool> testBackendConnection() async {
+    final url = Uri.parse('$backendBaseUrl/api/test-upload');
+
+    try {
+      final response = await http.get(url).timeout(const Duration(seconds: 10));
+
+      if (kDebugMode) {
+        print(
+            '🔍 Backend test response: ${response.statusCode} - ${response.body}');
+      }
+
+      return response.statusCode == 200;
+    } catch (e) {
+      if (kDebugMode) {
+        print('❌ Backend test failed: $e');
+      }
+      return false;
+    }
+  }
+
+  /// Upload profile picture to the backend
+  Future<String> uploadProfilePicture(File imageFile) async {
+    final url = Uri.parse('$backendBaseUrl/api/profile/upload-picture');
+
+    if (kDebugMode) {
+      print('📤 Uploading profile picture to: $url');
+      print('📁 File path: ${imageFile.path}');
+      print('📏 File size: ${await imageFile.length()} bytes');
+    }
+
+    try {
+      // Create multipart request
+      final request = http.MultipartRequest('POST', url);
+
+      // Add authorization header
+      request.headers['Authorization'] = 'Bearer $_accessToken';
+      request.headers['Accept'] = 'application/json';
+
+      // Add the image file
+      final file = await http.MultipartFile.fromPath(
+        'profile_picture',
+        imageFile.path,
+      );
+      request.files.add(file);
+
+      if (kDebugMode) {
+        print('📤 Sending multipart request...');
+      }
+
+      // Send the request
+      final streamedResponse =
+          await request.send().timeout(const Duration(seconds: 30));
+      final response = await http.Response.fromStream(streamedResponse);
+
+      if (kDebugMode) {
+        print('📡 Upload response status: ${response.statusCode}');
+        print('📄 Upload response body: ${response.body}');
+      }
+
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body);
+        final imageUrl = responseData['image_url'];
+
+        if (kDebugMode) {
+          print('✅ Upload successful, image URL: $imageUrl');
+        }
+
+        return imageUrl;
+      } else {
+        String errorMessage = 'Failed to upload image';
+        try {
+          final error = jsonDecode(response.body);
+          errorMessage = error['message'] ?? errorMessage;
+        } catch (e) {
+          errorMessage = 'HTTP ${response.statusCode}: ${response.body}';
+        }
+
+        if (kDebugMode) {
+          print('❌ Upload failed: $errorMessage');
+        }
+
+        throw errorMessage;
+      }
+    } on http.ClientException catch (e) {
+      final error = 'Network error: ${e.message}';
+      if (kDebugMode) {
+        print('🌐 $error');
+      }
+      throw error;
+    } on TimeoutException {
+      const error = 'Upload timed out';
+      if (kDebugMode) {
+        print('⏰ $error');
+      }
+      throw error;
+    } catch (e) {
+      final error = 'Error uploading image: ${e.toString()}';
+      if (kDebugMode) {
+        print('💥 $error');
+      }
+      throw error;
+    }
+  }
+
+  /// Update user profile picture URL
+  Future<void> updateProfilePicture(String imageUrl) async {
+    final url = Uri.parse('$backendBaseUrl/api/profile/update-picture');
+
+    try {
+      final response = await http
+          .post(
+            url,
+            headers: getAuthHeaders(),
+            body: jsonEncode({
+              'profile_picture': imageUrl,
+            }),
+          )
+          .timeout(const Duration(seconds: 10));
+
+      if (response.statusCode != 200) {
+        final error = jsonDecode(response.body);
+        throw error['message'] ?? 'Failed to update profile picture';
+      }
+    } on http.ClientException catch (e) {
+      throw 'Network error: ${e.message}';
+    } on TimeoutException {
+      throw 'Request timed out';
+    } catch (e) {
+      throw 'Error updating profile picture: ${e.toString()}';
     }
   }
 }

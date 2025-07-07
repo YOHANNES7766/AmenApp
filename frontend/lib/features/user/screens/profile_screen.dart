@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
+import 'package:flutter/foundation.dart'; // Added for kDebugMode
 import '../../../shared/services/auth_service.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../widgets/profile_header.dart';
@@ -100,34 +103,65 @@ class _ProfileScreenState extends State<ProfileScreen> {
             // Profile Header
             ProfileHeader(
               userProfile: _userProfile,
-              onChangePicture: () {
-                showModalBottomSheet(
-                  context: context,
-                  builder: (context) => Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      ListTile(
-                        leading: const Icon(Icons.camera_alt),
-                        title: Text(AppLocalizations.of(context).takePhoto),
-                        onTap: () {
-                          Navigator.pop(context);
-                          // Handle camera
-                        },
-                      ),
-                      ListTile(
-                        leading: const Icon(Icons.photo_library),
-                        title: Text(
-                            AppLocalizations.of(context).chooseFromGallery),
-                        onTap: () {
-                          Navigator.pop(context);
-                          // Handle gallery selection
-                        },
-                      ),
-                    ],
-                  ),
-                );
-              },
+              onChangePicture: _handleImageSelection,
             ),
+
+            // Debug Section (only in debug mode)
+            if (kDebugMode)
+              _buildSection(
+                title: 'Debug Tools',
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.bug_report),
+                    title: const Text('Test Profile Load'),
+                    subtitle: const Text('Test fetching profile data'),
+                    onTap: () async {
+                      try {
+                        final authService =
+                            Provider.of<AuthService>(context, listen: false);
+                        final profile = await authService.fetchUserProfile();
+                        print('Current profile: $profile');
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                              content:
+                                  Text('Profile loaded: ${profile['name']}')),
+                        );
+                      } catch (e) {
+                        print('Error fetching profile: $e');
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Error: $e')),
+                        );
+                      }
+                    },
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.wifi),
+                    title: const Text('Test Backend Connection'),
+                    subtitle: const Text('Test backend connectivity'),
+                    onTap: () async {
+                      try {
+                        final authService =
+                            Provider.of<AuthService>(context, listen: false);
+                        final isConnected =
+                            await authService.testBackendConnection();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(isConnected
+                                ? 'Backend connected!'
+                                : 'Backend connection failed'),
+                            backgroundColor:
+                                isConnected ? Colors.green : Colors.red,
+                          ),
+                        );
+                      } catch (e) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Test failed: $e')),
+                        );
+                      }
+                    },
+                  ),
+                ],
+              ),
 
             // Profile Information Section
             _buildSection(
@@ -367,6 +401,96 @@ class _ProfileScreenState extends State<ProfileScreen> {
       trailing: const Icon(Icons.chevron_right),
       onTap: onTap,
     );
+  }
+
+  Future<void> _handleImageSelection() async {
+    final ImagePicker picker = ImagePicker();
+
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            leading: const Icon(Icons.camera_alt),
+            title: Text(AppLocalizations.of(context).takePhoto),
+            onTap: () async {
+              Navigator.pop(context);
+              await _pickAndUploadImage(ImageSource.camera);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.photo_library),
+            title: Text(AppLocalizations.of(context).chooseFromGallery),
+            onTap: () async {
+              Navigator.pop(context);
+              await _pickAndUploadImage(ImageSource.gallery);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _pickAndUploadImage(ImageSource source) async {
+    try {
+      final ImagePicker picker = ImagePicker();
+      final XFile? image = await picker.pickImage(
+        source: source,
+        maxWidth: 800,
+        maxHeight: 800,
+        imageQuality: 80,
+      );
+
+      if (image != null) {
+        // Show loading indicator
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) =>
+              const Center(child: CircularProgressIndicator()),
+        );
+
+        try {
+          final authService = Provider.of<AuthService>(context, listen: false);
+
+          // Upload the image (this also updates the user profile automatically)
+          await authService.uploadProfilePicture(File(image.path));
+
+          // Reload the profile to get updated data
+          await _loadUserProfile();
+
+          if (mounted) {
+            Navigator.pop(context); // Close loading dialog
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Profile picture updated successfully!'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
+        } catch (e) {
+          if (mounted) {
+            Navigator.pop(context); // Close loading dialog
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Failed to upload image: $e'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to pick image: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 }
 

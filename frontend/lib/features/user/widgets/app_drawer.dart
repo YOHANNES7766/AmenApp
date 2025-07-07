@@ -13,8 +13,41 @@ import 'package:amen_app/features/user/screens/attendance_screen.dart';
 import 'package:amen_app/shared/services/theme_service.dart';
 import 'package:amen_app/core/localization/app_localizations.dart';
 
-class AppDrawer extends StatelessWidget {
+class AppDrawer extends StatefulWidget {
   const AppDrawer({Key? key}) : super(key: key);
+
+  @override
+  State<AppDrawer> createState() => _AppDrawerState();
+}
+
+class _AppDrawerState extends State<AppDrawer> {
+  Map<String, dynamic>? _userProfile;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserProfile();
+  }
+
+  Future<void> _loadUserProfile() async {
+    try {
+      final authService = Provider.of<AuthService>(context, listen: false);
+      final profile = await authService.fetchUserProfile();
+      if (mounted) {
+        setState(() {
+          _userProfile = profile;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -22,6 +55,25 @@ class AppDrawer extends StatelessWidget {
     final isDark = theme.brightness == Brightness.dark;
     final themeService = Provider.of<ThemeService>(context);
     final localizations = AppLocalizations.of(context);
+
+    // Helper function to get full image URL
+    String? _getFullImageUrl(String? imagePath) {
+      if (imagePath == null || imagePath.isEmpty) return null;
+
+      // If it's already a full URL, return as is
+      if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+        return imagePath;
+      }
+
+      // If it's a relative path, prepend the backend URL
+      if (imagePath.startsWith('/')) {
+        return 'http://10.217.242.58:8000$imagePath';
+      }
+
+      return imagePath;
+    }
+
+    final fullImageUrl = _getFullImageUrl(_userProfile?['profile_picture']);
 
     return Drawer(
       child: Container(
@@ -34,11 +86,52 @@ class AppDrawer extends StatelessWidget {
                   top: 50, bottom: 16, left: 16, right: 16),
               child: Row(
                 children: [
-                  CircleAvatar(
-                    radius: 30,
-                    backgroundColor: theme.colorScheme.primary.withOpacity(0.1),
-                    backgroundImage:
-                        const AssetImage('assets/images/profiles/jo.jpg'),
+                  GestureDetector(
+                    onTap: () {
+                      // Navigate to profile screen for image upload
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              const ProfileScreen(isTab: false),
+                        ),
+                      );
+                    },
+                    child: Stack(
+                      children: [
+                        CircleAvatar(
+                          radius: 40,
+                          backgroundColor:
+                              theme.colorScheme.primary.withOpacity(0.1),
+                          backgroundImage: fullImageUrl != null
+                              ? NetworkImage(fullImageUrl)
+                              : null,
+                          child: fullImageUrl == null
+                              ? Icon(
+                                  Icons.person,
+                                  size: 48,
+                                  color: theme.colorScheme.primary,
+                                )
+                              : null,
+                        ),
+                        Positioned(
+                          right: 0,
+                          bottom: 0,
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.primary,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.camera_alt,
+                              size: 16,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
@@ -46,7 +139,9 @@ class AppDrawer extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Jo',
+                          _isLoading
+                              ? 'Loading...'
+                              : _userProfile?['name']?.toString() ?? 'User',
                           style: TextStyle(
                             color: theme.colorScheme.onSurface,
                             fontWeight: FontWeight.w600,
@@ -55,7 +150,10 @@ class AppDrawer extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'yohannesdawit360@gmail.com',
+                          _isLoading
+                              ? 'Loading...'
+                              : _userProfile?['email']?.toString() ??
+                                  'No email',
                           style: TextStyle(
                             color: theme.colorScheme.onSurface.withOpacity(0.7),
                             fontSize: 14,

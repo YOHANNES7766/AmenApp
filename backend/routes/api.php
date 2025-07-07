@@ -19,6 +19,8 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('/profile', [UserProfileController::class, 'show']);
     Route::put('/profile', [UserProfileController::class, 'update']);
     Route::post('/profile/change-password', [UserProfileController::class, 'changePassword']);
+    Route::post('/profile/upload-picture', [UserProfileController::class, 'uploadProfilePicture']);
+    Route::post('/profile/update-picture', [UserProfileController::class, 'updateProfilePicture']);
 });
 
 Route::middleware(['auth:sanctum', 'admin'])->group(function () {
@@ -39,6 +41,10 @@ Route::get('/test-db', function () {
     } catch (\Exception $e) {
         return response()->json(['error' => $e->getMessage()], 500);
     }
+});
+
+Route::get('/test-upload', function () {
+    return response()->json(['message' => 'Upload endpoint is accessible']);
 });
 
 require __DIR__.'/auth.php';
