@@ -1,0 +1,2 @@
+/home/jo/amenapp/frontend/android/app/.cxx/RelWithDebInfo/1i5g4b2n/armeabi-v7a/CMakeFiles/edit_cache.dir
+/home/jo/amenapp/frontend/android/app/.cxx/RelWithDebInfo/1i5g4b2n/armeabi-v7a/CMakeFiles/rebuild_cache.dir

@@ -1,0 +1,1 @@
+/home/jo/amenapp/frontend/build/app/intermediates/cxx/Debug/295h1s3s/obj/armeabi-v7a

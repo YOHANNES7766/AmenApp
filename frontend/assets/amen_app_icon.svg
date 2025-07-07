@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background gradient -->
+  <defs>
+    <linearGradient id="bg-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="100%" stop-color="#F5F5F5"/>
+    </linearGradient>
+  </defs>
+  
+  <!-- Rounded rectangle background -->
+  <rect x="0" y="0" width="512" height="512" rx="80" ry="80" fill="url(#bg-gradient)"/>
+  
+  <!-- Circular arrangement of stylized figures -->
+  <g transform="translate(256, 256)">
+    <!-- Figure 1 -->
+    <path d="M 0,-160 C -10,-130 -40,-120 -30,-90 C -10,-80 10,-80 30,-90 C 40,-120 10,-130 0,-160" 
+          fill="#2B4C7E" transform="rotate(0)"/>
+    
+    <!-- Figure 2 -->
+    <path d="M 0,-160 C -10,-130 -40,-120 -30,-90 C -10,-80 10,-80 30,-90 C 40,-120 10,-130 0,-160" 
+          fill="#D64045" transform="rotate(45)"/>
+    
+    <!-- Figure 3 -->
+    <path d="M 0,-160 C -10,-130 -40,-120 -30,-90 C -10,-80 10,-80 30,-90 C 40,-120 10,-130 0,-160" 
+          fill="#2B4C7E" transform="rotate(90)"/>
+    
+    <!-- Figure 4 -->
+    <path d="M 0,-160 C -10,-130 -40,-120 -30,-90 C -10,-80 10,-80 30,-90 C 40,-120 10,-130 0,-160" 
+          fill="#D64045" transform="rotate(135)"/>
+    
+    <!-- Figure 5 -->
+    <path d="M 0,-160 C -10,-130 -40,-120 -30,-90 C -10,-80 10,-80 30,-90 C 40,-120 10,-130 0,-160" 
+          fill="#2B4C7E" transform="rotate(180)"/>
+    
+    <!-- Figure 6 -->
+    <path d="M 0,-160 C -10,-130 -40,-120 -30,-90 C -10,-80 10,-80 30,-90 C 40,-120 10,-130 0,-160" 
+          fill="#D64045" transform="rotate(225)"/>
+    
+    <!-- Figure 7 -->
+    <path d="M 0,-160 C -10,-130 -40,-120 -30,-90 C -10,-80 10,-80 30,-90 C 40,-120 10,-130 0,-160" 
+          fill="#2B4C7E" transform="rotate(270)"/>
+    
+    <!-- Figure 8 -->
+    <path d="M 0,-160 C -10,-130 -40,-120 -30,-90 C -10,-80 10,-80 30,-90 C 40,-120 10,-130 0,-160" 
+          fill="#D64045" transform="rotate(315)"/>
+    
+    <!-- Center circle (subtle A shape) -->
+    <path d="M -40,-20 L 0,-75 L 40,-20 L 25,40 L -25,40 Z" 
+          fill="#F5F5F5" stroke="#2B4C7E" stroke-width="4" opacity="0.8"/>
+  </g>
+</svg> 

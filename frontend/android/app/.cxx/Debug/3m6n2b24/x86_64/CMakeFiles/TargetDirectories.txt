@@ -1,0 +1,2 @@
+/home/jo/AmenApp/amen_app/frontend/android/app/.cxx/Debug/3m6n2b24/x86_64/CMakeFiles/edit_cache.dir
+/home/jo/AmenApp/amen_app/frontend/android/app/.cxx/Debug/3m6n2b24/x86_64/CMakeFiles/rebuild_cache.dir

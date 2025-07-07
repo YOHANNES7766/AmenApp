@@ -1,0 +1,72 @@
+name: amen_app
+description: A Bible study app
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  cupertino_icons: ^1.0.2
+  http: ^1.1.0
+  shared_preferences: ^2.2.2
+  intl: ^0.19.0
+  fl_chart: ^0.66.0
+  provider: ^6.1.1
+  google_fonts: ^6.1.0
+  animate_do: ^3.3.3
+  flutter_svg: ^2.0.9
+  flutter_native_splash: ^2.4.6
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^2.0.0
+  flutter_launcher_icons: ^0.13.1
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/
+    - assets/icons/
+    - assets/images/books/
+    - assets/images/profiles/
+    - assets/amen_app_icon.svg
+    - assets/amen_app_icon.png
+    - assets/biblestudy3.jpeg
+    - assets/icons/new_icon/bible_study_circle.svg
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/biblestudy3.jpeg"
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: "assets/biblestudy3.jpeg"
+  min_sdk_android: 21
+  remove_alpha_ios: true
+  web:
+    generate: true
+    image_path: "assets/biblestudy3.jpeg"
+    background_color: "#FFFFFF"
+    theme_color: "#2B4C7E"
+
+flutter_native_splash:
+  color: "#8c6d46"
+  background_image: "assets/biblestudy3.jpeg"
+  image: "assets/biblestudy3.jpeg"
+  image_dark: "assets/biblestudy3.jpeg"
+  branding: null
+  branding_dark: null
+  
+  android_12:
+    icon_background_color: "#8c6d46"
+    image: "assets/biblestudy3.jpeg"
+    icon_background_color_dark: "#5d4630"
+    image_dark: "assets/biblestudy3.jpeg"
+
+  web: false
+  fullscreen: true

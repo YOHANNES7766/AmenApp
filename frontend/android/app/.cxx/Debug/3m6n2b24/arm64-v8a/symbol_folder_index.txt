@@ -1,0 +1,1 @@
+/home/jo/AmenApp/amen_app/frontend/build/app/intermediates/cxx/Debug/3m6n2b24/obj/arm64-v8a
