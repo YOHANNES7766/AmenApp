@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\User;
 // use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Hash;
 
 class DatabaseSeeder extends Seeder
 {
@@ -27,5 +28,20 @@ class DatabaseSeeder extends Seeder
             'password' => \Illuminate\Support\Facades\Hash::make('mobile123'),
             'role' => 'user',
         ]);
+
+        // Create admin user if not exists
+        \App\Models\User::firstOrCreate(
+            [
+                'email' => 'admin@example.com'
+            ],
+            [
+                'name' => 'Admin',
+                'password' => Hash::make('admin123'),
+                'role' => 'admin',
+                'approved' => true,
+                'campus' => 'MAIN CAMPUS',
+                'department' => 'SWE',
+            ]
+        );
     }
 }

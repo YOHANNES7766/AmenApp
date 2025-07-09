@@ -39,6 +39,7 @@ class RegisteredUserController extends Controller
             'campus' => $request->campus,
             'department' => $request->department,
             'role' => $request->role ?? 'user',
+            'approved' => false, // Ensure user is not approved by default
         ]);
 
         event(new Registered($user));

@@ -30,6 +30,12 @@ class AuthenticatedSessionController extends Controller
             ], 401);
         }
 
+        if (! $user->approved) {
+            return response()->json([
+                'message' => 'Your account is pending admin approval.'
+            ], 403);
+        }
+
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([

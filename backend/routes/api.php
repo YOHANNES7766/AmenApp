@@ -31,6 +31,11 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
     Route::get('/admin/users', function (Request $request) {
         return response()->json(['message' => 'Admin users list', 'users' => \App\Models\User::all()]);
     });
+
+    // Admin approval endpoints
+    Route::get('/admin/pending-users', [\App\Http\Controllers\AdminUserApprovalController::class, 'pending']);
+    Route::post('/admin/approve-user/{id}', [\App\Http\Controllers\AdminUserApprovalController::class, 'approve']);
+    Route::delete('/admin/decline-user/{id}', [\App\Http\Controllers\AdminUserApprovalController::class, 'decline']);
 });
 
 
