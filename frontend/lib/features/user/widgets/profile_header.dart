@@ -23,9 +23,9 @@ class ProfileHeader extends StatelessWidget {
       return imagePath;
     }
 
-    // If it's a relative path, prepend the backend URL
+    // If it's a relative path, prepend the backendBaseUrl
     if (imagePath.startsWith('/')) {
-      return 'http://10.217.242.58:8000$imagePath';
+      return '$backendBaseUrl$imagePath';
     }
 
     return imagePath;
@@ -90,19 +90,6 @@ class ProfileHeader extends StatelessWidget {
               fontSize: 14,
               color: Colors.grey,
             ),
-          ),
-          const SizedBox(height: 16),
-          ElevatedButton(
-            onPressed: () {
-              // Handle edit profile
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Theme.of(context).primaryColor,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            child: Text(AppLocalizations.of(context).editProfile),
           ),
         ],
       ),

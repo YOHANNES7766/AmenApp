@@ -67,7 +67,7 @@ class _AppDrawerState extends State<AppDrawer> {
 
       // If it's a relative path, prepend the backend URL
       if (imagePath.startsWith('/')) {
-        return 'http://10.217.242.58:8000$imagePath';
+        return 'http://10.36.146.58:8000$imagePath';
       }
 
       return imagePath;

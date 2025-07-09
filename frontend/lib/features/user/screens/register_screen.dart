@@ -73,11 +73,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Registered successfully'),
-          backgroundColor: Colors.green,
+          content: Text(
+              'Registration successful! Your account is pending admin approval.'),
+          backgroundColor: Colors.orange,
         ),
       );
-      Navigator.pushReplacementNamed(context, '/home');
+      Navigator.pushReplacementNamed(context, '/login');
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

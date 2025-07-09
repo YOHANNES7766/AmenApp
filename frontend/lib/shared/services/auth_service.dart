@@ -6,7 +6,7 @@ import 'dart:io';
 
 // TODO: Set your computer's LAN IP address here for physical device testing
 const String backendBaseUrl =
-    'http://10.217.242.58:8000'; // <- use your real LAN IP
+    'http://10.36.146.58:8000'; // <- use your real LAN IP
 
 class AuthService extends ChangeNotifier {
   bool _isAuthenticated = false;
@@ -463,6 +463,27 @@ class AuthService extends ChangeNotifier {
       throw 'Request timed out';
     } catch (e) {
       throw 'Error updating profile picture: ${e.toString()}';
+    }
+  }
+
+  /// Fetch all pending users (admin only)
+  Future<List<Map<String, dynamic>>> fetchPendingUsers() async {
+    final url = Uri.parse('$backendBaseUrl/api/admin/pending-users');
+    final response = await http.get(url, headers: getAuthHeaders());
+    if (response.statusCode == 200) {
+      final List<dynamic> data = jsonDecode(response.body);
+      return data.cast<Map<String, dynamic>>();
+    } else {
+      throw 'Failed to fetch pending users: ${response.statusCode}';
+    }
+  }
+
+  /// Approve a user by ID (admin only)
+  Future<void> approveUser(int userId) async {
+    final url = Uri.parse('$backendBaseUrl/api/admin/approve-user/$userId');
+    final response = await http.post(url, headers: getAuthHeaders());
+    if (response.statusCode != 200) {
+      throw 'Failed to approve user: ${response.statusCode}';
     }
   }
 }

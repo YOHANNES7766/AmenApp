@@ -14,6 +14,7 @@ import 'joined_events_screen.dart';
 import 'notifications_screen.dart';
 import 'theme_screen.dart';
 import 'attendance_screen.dart';
+import 'profile_details_screen.dart'; // Added import for ProfileDetailsScreen
 
 class ProfileScreen extends StatefulWidget {
   final bool isTab;
@@ -83,7 +84,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               Text(_error!),
               const SizedBox(height: 16),
               ElevatedButton(
-                onPressed: () {},
+                onPressed: _loadUserProfile,
                 child: const Text('Retry'),
               ),
             ],
@@ -96,211 +97,154 @@ class _ProfileScreenState extends State<ProfileScreen> {
       return const Center(child: Text('No profile data available'));
     }
 
-    return Scaffold(
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            // Profile Header
-            ProfileHeader(
-              userProfile: _userProfile,
-              onChangePicture: _handleImageSelection,
-            ),
+    // Modern profile header (like drawer/app)
+    return SingleChildScrollView(
+      child: Column(
+        children: [
+          // Use ProfileHeader widget for consistency
+          ProfileHeader(
+            userProfile: _userProfile,
+            onChangePicture: _handleImageSelection,
+          ),
 
-            // Debug Section (only in debug mode)
-            if (kDebugMode)
-              _buildSection(
-                title: 'Debug Tools',
-                children: [
-                  ListTile(
-                    leading: const Icon(Icons.bug_report),
-                    title: const Text('Test Profile Load'),
-                    subtitle: const Text('Test fetching profile data'),
-                    onTap: () async {
-                      try {
-                        final authService =
-                            Provider.of<AuthService>(context, listen: false);
-                        final profile = await authService.fetchUserProfile();
-                        print('Current profile: $profile');
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                              content:
-                                  Text('Profile loaded: ${profile['name']}')),
-                        );
-                      } catch (e) {
-                        print('Error fetching profile: $e');
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Error: $e')),
-                        );
-                      }
-                    },
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.wifi),
-                    title: const Text('Test Backend Connection'),
-                    subtitle: const Text('Test backend connectivity'),
-                    onTap: () async {
-                      try {
-                        final authService =
-                            Provider.of<AuthService>(context, listen: false);
-                        final isConnected =
-                            await authService.testBackendConnection();
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(isConnected
-                                ? 'Backend connected!'
-                                : 'Backend connection failed'),
-                            backgroundColor:
-                                isConnected ? Colors.green : Colors.red,
-                          ),
-                        );
-                      } catch (e) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Test failed: $e')),
-                        );
-                      }
-                    },
-                  ),
-                ],
+          // Profile Information Section
+          _buildSection(
+            title: 'My Profile',
+            children: [
+              _buildMenuItem(
+                icon: Icons.person_outline,
+                title: 'Personal Information',
+                subtitle: 'View and edit your profile details',
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const ProfileDetailsScreen(),
+                    ),
+                  );
+                },
               ),
+            ],
+          ),
 
-            // Profile Information Section
-            _buildSection(
-              title: 'Profile Information',
-              children: [
-                _buildInfoTile('Name',
-                    _userProfile!['name']?.toString() ?? 'Not provided'),
-                _buildInfoTile('Email',
-                    _userProfile!['email']?.toString() ?? 'Not provided'),
-                _buildInfoTile('Phone',
-                    _userProfile!['phone']?.toString() ?? 'Not provided'),
-                _buildInfoTile('Campus',
-                    _userProfile!['campus']?.toString() ?? 'Not provided'),
-                _buildInfoTile('Department',
-                    _userProfile!['department']?.toString() ?? 'Not provided'),
-                _buildInfoTile(
-                    'Role', _userProfile!['role']?.toString() ?? 'user'),
-              ],
-            ),
+          // Profile Menu Items
+          _buildSection(
+            title: AppLocalizations.of(context).spiritualJourney,
+            children: [
+              _buildMenuItem(
+                icon: Icons.front_hand,
+                title: AppLocalizations.of(context).myPrayers,
+                subtitle: AppLocalizations.of(context).viewTrackPrayers,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const PrayerRequestsScreen(),
+                    ),
+                  );
+                },
+              ),
+              _buildMenuItem(
+                icon: Icons.check_circle_outline,
+                title: AppLocalizations.of(context).completedDevotions,
+                subtitle: AppLocalizations.of(context).trackDevotionProgress,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const CompletedDevotionsScreen(),
+                    ),
+                  );
+                },
+              ),
+              _buildMenuItem(
+                icon: Icons.calendar_today_outlined,
+                title: AppLocalizations.of(context).attendance,
+                subtitle: AppLocalizations.of(context).trackChurchAttendance,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const AttendanceScreen(),
+                    ),
+                  );
+                },
+              ),
+              _buildMenuItem(
+                icon: Icons.book_outlined,
+                title: AppLocalizations.of(context).savedNotes,
+                subtitle: AppLocalizations.of(context).accessSermonNotes,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const SavedNotesScreen(),
+                    ),
+                  );
+                },
+              ),
+              _buildMenuItem(
+                icon: Icons.event_outlined,
+                title: AppLocalizations.of(context).joinedEvents,
+                subtitle: AppLocalizations.of(context).viewUpcomingEvents,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const JoinedEventsScreen(),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
 
-            // Profile Menu Items
-            _buildSection(
-              title: AppLocalizations.of(context).spiritualJourney,
-              children: [
-                _buildMenuItem(
-                  icon: Icons.front_hand,
-                  title: AppLocalizations.of(context).myPrayers,
-                  subtitle: AppLocalizations.of(context).viewTrackPrayers,
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const PrayerRequestsScreen(),
-                      ),
-                    );
-                  },
-                ),
-                _buildMenuItem(
-                  icon: Icons.check_circle_outline,
-                  title: AppLocalizations.of(context).completedDevotions,
-                  subtitle: AppLocalizations.of(context).trackDevotionProgress,
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const CompletedDevotionsScreen(),
-                      ),
-                    );
-                  },
-                ),
-                _buildMenuItem(
-                  icon: Icons.calendar_today_outlined,
-                  title: AppLocalizations.of(context).attendance,
-                  subtitle: AppLocalizations.of(context).trackChurchAttendance,
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const AttendanceScreen(),
-                      ),
-                    );
-                  },
-                ),
-                _buildMenuItem(
-                  icon: Icons.book_outlined,
-                  title: AppLocalizations.of(context).savedNotes,
-                  subtitle: AppLocalizations.of(context).accessSermonNotes,
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const SavedNotesScreen(),
-                      ),
-                    );
-                  },
-                ),
-                _buildMenuItem(
-                  icon: Icons.event_outlined,
-                  title: AppLocalizations.of(context).joinedEvents,
-                  subtitle: AppLocalizations.of(context).viewUpcomingEvents,
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const JoinedEventsScreen(),
-                      ),
-                    );
-                  },
-                ),
-              ],
-            ),
-
-            // Settings Section
-            _buildSection(
-              title: AppLocalizations.of(context).settings,
-              children: [
-                _buildMenuItem(
-                  icon: Icons.notifications_outlined,
-                  title: AppLocalizations.of(context).notifications,
-                  subtitle: AppLocalizations.of(context).notificationSettings,
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const NotificationsScreen(),
-                      ),
-                    );
-                  },
-                ),
-                _buildMenuItem(
-                  icon: Icons.palette_outlined,
-                  title: AppLocalizations.of(context).theme,
-                  subtitle: AppLocalizations.of(context).changeAppTheme,
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const ThemeScreen(),
-                      ),
-                    );
-                  },
-                ),
-                _buildMenuItem(
-                  icon: Icons.settings_outlined,
-                  title: AppLocalizations.of(context).appSettings,
-                  subtitle: AppLocalizations.of(context).appPreferences,
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const AppSettingsScreen(),
-                      ),
-                    );
-                  },
-                ),
-              ],
-            ),
-          ],
-        ),
+          // Settings Section
+          _buildSection(
+            title: AppLocalizations.of(context).settings,
+            children: [
+              _buildMenuItem(
+                icon: Icons.notifications_outlined,
+                title: AppLocalizations.of(context).notifications,
+                subtitle: AppLocalizations.of(context).notificationSettings,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const NotificationsScreen(),
+                    ),
+                  );
+                },
+              ),
+              _buildMenuItem(
+                icon: Icons.palette_outlined,
+                title: AppLocalizations.of(context).theme,
+                subtitle: AppLocalizations.of(context).changeAppTheme,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const ThemeScreen(),
+                    ),
+                  );
+                },
+              ),
+              _buildMenuItem(
+                icon: Icons.settings_outlined,
+                title: AppLocalizations.of(context).appSettings,
+                subtitle: AppLocalizations.of(context).appPreferences,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const AppSettingsScreen(),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -325,48 +269,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ...children,
       ],
     );
-  }
-
-  Widget _buildInfoTile(String label, String value) {
-    return ListTile(
-      title: Text(
-        label,
-        style: const TextStyle(
-          fontWeight: FontWeight.w500,
-          fontSize: 14,
-        ),
-      ),
-      subtitle: Text(
-        value,
-        style: TextStyle(
-          fontSize: 16,
-          color: Colors.grey[700],
-        ),
-      ),
-      leading: Icon(
-        _getIconForField(label),
-        color: Theme.of(context).primaryColor,
-      ),
-    );
-  }
-
-  IconData _getIconForField(String field) {
-    switch (field.toLowerCase()) {
-      case 'name':
-        return Icons.person;
-      case 'email':
-        return Icons.email;
-      case 'phone':
-        return Icons.phone;
-      case 'campus':
-        return Icons.school;
-      case 'department':
-        return Icons.business;
-      case 'role':
-        return Icons.admin_panel_settings;
-      default:
-        return Icons.info;
-    }
   }
 
   Widget _buildMenuItem({

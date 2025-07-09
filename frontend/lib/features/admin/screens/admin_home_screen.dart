@@ -12,6 +12,7 @@ import 'app_settings.dart';
 import 'admin_chat_screen.dart';
 import 'admin_books_screen.dart';
 import 'admin_profile_screen.dart';
+import 'admin_users_screen.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../shared/widgets/language_selector.dart';
 
@@ -119,7 +120,7 @@ class AdminHomeContent extends StatelessWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => const UserManagement(),
+                      builder: (context) => const AdminUsersScreen(),
                     ),
                   );
                 },
@@ -259,7 +260,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
 
   final List<Widget> _screens = [
     const AdminHomeContent(),
-    const UserManagement(),
+    const AdminUsersScreen(), // was UserManagement
     const ContentManagement(),
     const EventManagement(),
     const PrayerModeration(),
