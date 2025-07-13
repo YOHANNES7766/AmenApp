@@ -454,7 +454,7 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
   }
 
   Widget _buildPopularContentList(String title, List<dynamic> items) {
-    AppLocalizations.of(context);
+    final localizations = AppLocalizations.of(context);
 
     return Card(
       elevation: 4,
