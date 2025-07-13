@@ -5,8 +5,11 @@ import '../../../shared/services/theme_service.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../screens/attendance_management.dart';
 import '../screens/language_management.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
+import 'package:flutter/foundation.dart'; // Added for kIsWeb
 
-class AdminDrawer extends StatelessWidget {
+class AdminDrawer extends StatefulWidget {
   final int selectedIndex;
   final Function(int) onItemSelected;
 
@@ -15,6 +18,52 @@ class AdminDrawer extends StatelessWidget {
     required this.selectedIndex,
     required this.onItemSelected,
   }) : super(key: key);
+
+  @override
+  State<AdminDrawer> createState() => _AdminDrawerState();
+}
+
+class _AdminDrawerState extends State<AdminDrawer> {
+  String? _profileImageUrl;
+  bool _isUploading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProfileImage();
+  }
+
+  Future<void> _loadProfileImage() async {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final profile = await authService.fetchUserProfile();
+    setState(() {
+      _profileImageUrl = profile['profile_picture'];
+    });
+  }
+
+  Future<void> _pickAndUploadImage() async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(
+        source: ImageSource.gallery, imageQuality: 80, maxWidth: 800);
+    if (pickedFile != null) {
+      setState(() => _isUploading = true);
+      final authService = Provider.of<AuthService>(context, listen: false);
+      try {
+        final imageUrl =
+            await authService.uploadProfilePicture(File(pickedFile.path));
+        await authService.updateProfilePicture(imageUrl);
+        setState(() {
+          _profileImageUrl = imageUrl;
+          _isUploading = false;
+        });
+      } catch (e) {
+        setState(() => _isUploading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to upload image: $e')),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -40,13 +89,52 @@ class AdminDrawer extends StatelessWidget {
               ),
               child: Column(
                 children: [
-                  const CircleAvatar(
-                    radius: 40,
-                    backgroundColor: Colors.white,
-                    child: Icon(
-                      Icons.admin_panel_settings,
-                      size: 40,
-                      color: Colors.blue,
+                  GestureDetector(
+                    onTap: _isUploading ? null : _pickAndUploadImage,
+                    child: Stack(
+                      children: [
+                        CircleAvatar(
+                          radius: 40,
+                          backgroundColor: Colors.white,
+                          backgroundImage: _profileImageUrl != null &&
+                                  _profileImageUrl!.isNotEmpty
+                              ? (_profileImageUrl!.startsWith('http')
+                                  ? NetworkImage(_profileImageUrl!)
+                                  : _profileImageUrl!.startsWith('/storage/')
+                                      ? NetworkImage(
+                                          backendBaseUrl + _profileImageUrl!)
+                                      : AssetImage(_profileImageUrl!)
+                                          as ImageProvider)
+                              : const AssetImage(
+                                  'assets/images/profiles/user1.png.jpg'),
+                          child: _isUploading
+                              ? const CircularProgressIndicator()
+                              : (_profileImageUrl == null ||
+                                      _profileImageUrl!.isEmpty)
+                                  ? const Icon(
+                                      Icons.admin_panel_settings,
+                                      size: 40,
+                                      color: Colors.blue,
+                                    )
+                                  : null,
+                        ),
+                        Positioned(
+                          right: 0,
+                          bottom: 0,
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).primaryColor,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.camera_alt,
+                              size: 16,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -100,7 +188,7 @@ class AdminDrawer extends StatelessWidget {
                     title: localizations.books,
                     onTap: () {
                       print('Books menu item clicked in drawer');
-                      onItemSelected(11);
+                      widget.onItemSelected(11);
                       Navigator.pop(context);
                     },
                   ),
@@ -201,7 +289,7 @@ class AdminDrawer extends StatelessWidget {
     Color? iconColor,
   }) {
     final theme = Theme.of(context);
-    final isSelected = index != null && index == selectedIndex;
+    final isSelected = index != null && index == widget.selectedIndex;
 
     return ListTile(
       leading: Icon(
@@ -225,7 +313,7 @@ class AdminDrawer extends StatelessWidget {
       selected: isSelected,
       onTap: () {
         if (index != null) {
-          onItemSelected(index);
+          widget.onItemSelected(index);
           Navigator.pop(context);
         } else if (onTap != null) {
           onTap();

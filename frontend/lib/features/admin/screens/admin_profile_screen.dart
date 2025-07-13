@@ -13,6 +13,8 @@ import 'feedback_management.dart';
 import 'app_settings.dart';
 import 'analytics_dashboard.dart';
 import 'attendance_management.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
 
 class AdminProfileScreen extends StatelessWidget {
   final bool isTab;
@@ -24,9 +26,55 @@ class AdminProfileScreen extends StatelessWidget {
   }
 }
 
-class AdminProfileContent extends StatelessWidget {
+class AdminProfileContent extends StatefulWidget {
   final bool isTab;
   const AdminProfileContent({Key? key, this.isTab = true}) : super(key: key);
+
+  @override
+  State<AdminProfileContent> createState() => _AdminProfileContentState();
+}
+
+class _AdminProfileContentState extends State<AdminProfileContent> {
+  String? _profileImageUrl;
+  bool _isUploading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProfileImage();
+  }
+
+  Future<void> _loadProfileImage() async {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final profile = await authService.fetchUserProfile();
+    setState(() {
+      _profileImageUrl = profile['profile_picture'];
+    });
+  }
+
+  Future<void> _pickAndUploadImage() async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(
+        source: ImageSource.gallery, imageQuality: 80, maxWidth: 800);
+    if (pickedFile != null) {
+      setState(() => _isUploading = true);
+      final authService = Provider.of<AuthService>(context, listen: false);
+      try {
+        final imageUrl =
+            await authService.uploadProfilePicture(File(pickedFile.path));
+        await authService.updateProfilePicture(imageUrl);
+        setState(() {
+          _profileImageUrl = imageUrl;
+          _isUploading = false;
+        });
+      } catch (e) {
+        setState(() => _isUploading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to upload image: $e')),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -34,7 +82,7 @@ class AdminProfileContent extends StatelessWidget {
     final localizations = AppLocalizations.of(context);
 
     return Scaffold(
-      appBar: isTab
+      appBar: widget.isTab
           ? null
           : AppBar(
               leading: IconButton(
@@ -66,39 +114,49 @@ class AdminProfileContent extends StatelessWidget {
               child: Column(
                 children: [
                   GestureDetector(
-                    onTap: () {
-                      // Handle profile picture change
-                      showModalBottomSheet(
-                        context: context,
-                        builder: (context) => Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            ListTile(
-                              leading: const Icon(Icons.camera_alt),
-                              title: Text(localizations.takePhoto),
-                              onTap: () {
-                                Navigator.pop(context);
-                                // Handle camera
-                              },
-                            ),
-                            ListTile(
-                              leading: const Icon(Icons.photo_library),
-                              title: Text(localizations.chooseFromGallery),
-                              onTap: () {
-                                Navigator.pop(context);
-                                // Handle gallery selection
-                              },
-                            ),
-                          ],
-                        ),
-                      );
-                    },
+                    onTap: _isUploading ? null : _pickAndUploadImage,
                     child: Stack(
                       children: [
-                        const CircleAvatar(
-                          radius: 40,
-                          backgroundImage:
-                              AssetImage('assets/images/profiles/user1.jpg'),
+                        Builder(
+                          builder: (context) {
+                            ImageProvider profileImageProvider;
+                            if (_profileImageUrl != null &&
+                                _profileImageUrl!.isNotEmpty) {
+                              if (_profileImageUrl!.startsWith('http')) {
+                                profileImageProvider =
+                                    NetworkImage(_profileImageUrl!);
+                              } else if (_profileImageUrl!
+                                  .startsWith('/storage/')) {
+                                profileImageProvider = NetworkImage(
+                                    backendBaseUrl + _profileImageUrl!);
+                              } else if (_profileImageUrl!
+                                  .startsWith('assets/')) {
+                                profileImageProvider =
+                                    AssetImage(_profileImageUrl!);
+                              } else {
+                                profileImageProvider = const AssetImage(
+                                    'assets/images/profiles/user1.png.jpg');
+                              }
+                            } else {
+                              profileImageProvider = const AssetImage(
+                                  'assets/images/profiles/user1.png.jpg');
+                            }
+                            return CircleAvatar(
+                              radius: 40,
+                              backgroundColor: Colors.white,
+                              backgroundImage: profileImageProvider,
+                              child: _isUploading
+                                  ? const CircularProgressIndicator()
+                                  : (_profileImageUrl == null ||
+                                          _profileImageUrl!.isEmpty)
+                                      ? const Icon(
+                                          Icons.admin_panel_settings,
+                                          size: 40,
+                                          color: Colors.blue,
+                                        )
+                                      : null,
+                            );
+                          },
                         ),
                         Positioned(
                           right: 0,

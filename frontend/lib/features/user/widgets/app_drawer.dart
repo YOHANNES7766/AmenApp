@@ -59,17 +59,15 @@ class _AppDrawerState extends State<AppDrawer> {
     // Helper function to get full image URL
     String? _getFullImageUrl(String? imagePath) {
       if (imagePath == null || imagePath.isEmpty) return null;
-
-      // If it's already a full URL, return as is
       if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
         return imagePath;
       }
-
-      // If it's a relative path, prepend the backend URL
+      if (imagePath.startsWith('/storage/')) {
+        return 'http://10.36.146.58:8000$imagePath';
+      }
       if (imagePath.startsWith('/')) {
         return 'http://10.36.146.58:8000$imagePath';
       }
-
       return imagePath;
     }
 

@@ -14,6 +14,8 @@ class AuthService extends ChangeNotifier {
   String? _currentUserEmail;
   String?
       _accessToken; // Store the JWT/Sanctum token for authenticated requests
+  int? _currentUserId;
+  int? get currentUserId => _currentUserId;
 
   bool get isAuthenticated => _isAuthenticated;
   bool get isAdmin => _isAdmin;
@@ -60,6 +62,7 @@ class AuthService extends ChangeNotifier {
 
         // Extract user data and token from response
         final user = responseData['user'];
+        _currentUserId = user['id'];
         _accessToken = responseData['access_token'];
         _currentUserEmail = user['email'];
 
@@ -155,6 +158,7 @@ class AuthService extends ChangeNotifier {
 
         // Extract user data and token from response
         final user = responseData['user'];
+        _currentUserId = user['id'];
         _accessToken = responseData['access_token'];
         _currentUserEmail = user['email'];
 
@@ -216,6 +220,7 @@ class AuthService extends ChangeNotifier {
     _isAdmin = false;
     _currentUserEmail = null;
     _accessToken = null;
+    _currentUserId = null;
 
     // Notify listeners that authentication state has changed
     notifyListeners();
@@ -484,6 +489,41 @@ class AuthService extends ChangeNotifier {
     final response = await http.post(url, headers: getAuthHeaders());
     if (response.statusCode != 200) {
       throw 'Failed to approve user: ${response.statusCode}';
+    }
+  }
+
+  /// Fetch all conversations for the authenticated user (admin or user)
+  Future<List<Map<String, dynamic>>> fetchConversations() async {
+    final url = Uri.parse('$backendBaseUrl/api/chat/conversations');
+    final response = await http.get(url, headers: getAuthHeaders());
+    if (response.statusCode == 200) {
+      final List<dynamic> data = jsonDecode(response.body);
+      return data.cast<Map<String, dynamic>>();
+    } else {
+      throw 'Failed to fetch conversations: ${response.statusCode}';
+    }
+  }
+
+  /// Fetch all approved users for chat (except self)
+  Future<List<Map<String, dynamic>>> fetchApprovedUsers() async {
+    final url = Uri.parse('$backendBaseUrl/api/chat/approved-users');
+    final response = await http.get(url, headers: getAuthHeaders());
+    if (response.statusCode == 200) {
+      final List<dynamic> data = jsonDecode(response.body);
+      return data.cast<Map<String, dynamic>>();
+    } else {
+      throw 'Failed to fetch approved users: ${response.statusCode}';
+    }
+  }
+
+  /// Fetch the saved messages (self-chat) conversation and its messages
+  Future<Map<String, dynamic>> fetchSavedMessages() async {
+    final url = Uri.parse('$backendBaseUrl/api/chat/saved-messages');
+    final response = await http.get(url, headers: getAuthHeaders());
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    } else {
+      throw 'Failed to fetch saved messages: \\${response.statusCode}';
     }
   }
 }
