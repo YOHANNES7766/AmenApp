@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../user/screens/chat_conversation_screen.dart';
-import '../../../core/localization/app_localizations.dart';
 import 'package:provider/provider.dart';
 import '../../../shared/services/auth_service.dart';
 
@@ -183,7 +182,7 @@ class _AdminChatScreenState extends State<AdminChatScreen>
                                 userImage: '',
                                 conversationId: conversationId,
                                 receiverId: currentUserId!,
-                                currentUserId: currentUserId!,
+                                currentUserId: currentUserId,
                               ),
                             ),
                           );

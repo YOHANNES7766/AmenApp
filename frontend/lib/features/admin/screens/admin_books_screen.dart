@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../../../core/localization/app_localizations.dart';
 import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:sqflite/sqflite.dart';
 import 'package:open_file/open_file.dart';
 import 'dart:io';
 import '../../../shared/services/local_db_helper.dart';

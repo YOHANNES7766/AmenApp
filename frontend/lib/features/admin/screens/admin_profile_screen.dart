@@ -78,7 +78,7 @@ class _AdminProfileContentState extends State<AdminProfileContent> {
 
   @override
   Widget build(BuildContext context) {
-    final themeService = Provider.of<ThemeService>(context);
+    Provider.of<ThemeService>(context);
     final localizations = AppLocalizations.of(context);
 
     return Scaffold(

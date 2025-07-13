@@ -11,7 +11,6 @@ class AnalyticsDashboard extends StatefulWidget {
 }
 
 class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
-  String _timeRange = 'week';
   bool _isLoading = true;
   Map<String, dynamic> _analytics = {};
 
@@ -95,7 +94,6 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
           actions: [
             PopupMenuButton<String>(
               onSelected: (value) {
-                setState(() => _timeRange = value);
                 _loadAnalytics();
               },
               itemBuilder: (context) => [
@@ -294,7 +292,7 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
 
   Widget _buildMetricCard(
       String title, String value, IconData icon, Color color) {
-    final localizations = AppLocalizations.of(context);
+    AppLocalizations.of(context);
 
     return Card(
       elevation: 4,
@@ -456,7 +454,7 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
   }
 
   Widget _buildPopularContentList(String title, List<dynamic> items) {
-    final localizations = AppLocalizations.of(context);
+    AppLocalizations.of(context);
 
     return Card(
       elevation: 4,

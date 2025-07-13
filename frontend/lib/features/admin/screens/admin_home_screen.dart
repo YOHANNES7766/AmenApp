@@ -394,7 +394,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
   }
 
   Widget? _getFloatingActionButton() {
-    final localizations = AppLocalizations.of(context);
+    AppLocalizations.of(context);
 
     switch (_selectedIndex) {
       default:
