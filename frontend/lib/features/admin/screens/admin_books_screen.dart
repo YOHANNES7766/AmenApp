@@ -41,10 +41,10 @@ class _AdminBooksScreenState extends State<AdminBooksScreen> {
   final TextEditingController _searchController = TextEditingController();
   int _selectedCategoryIndex = 0;
   bool _showApprovedOnly = false;
-  Map<String, double> _downloadProgress = {};
+  final Map<String, double> _downloadProgress = {};
   Set<String> _downloadedBookIds = {};
   Map<String, String> _localBookPaths = {};
-  bool _showMyLibrary = false;
+  final bool _showMyLibrary = false;
 
   // Upload book fields
   final TextEditingController _uploadTitleController = TextEditingController();
@@ -191,7 +191,12 @@ class _AdminBooksScreenState extends State<AdminBooksScreen> {
     final url = format == 'pdf'
         ? book.imageUrl
         : null; // Replace with book.pdfUrl/epubUrl from backend
-    if (url == null) return;
+    if (url == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Download URL not available.')),
+      );
+      return;
+    }
     try {
       await dio.download(
         url,
@@ -222,7 +227,9 @@ class _AdminBooksScreenState extends State<AdminBooksScreen> {
       setState(() {
         _downloadProgress.remove(book.id.toString());
       });
-      // Show error
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Download failed: \\${e.toString()}')),
+      );
     }
   }
 
@@ -643,7 +650,7 @@ class _AdminBooksScreenState extends State<AdminBooksScreen> {
                                     ),
                                   if (_downloadedBookIds
                                       .contains(book.id.toString()))
-                                    Positioned(
+                                    const Positioned(
                                       top: 4,
                                       left: 4,
                                       child: Icon(Icons.check_circle,
@@ -772,8 +779,8 @@ class _AdminBooksScreenState extends State<AdminBooksScreen> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _showUploadDialog,
-        child: const Icon(Icons.upload_file),
         tooltip: 'Upload Book',
+        child: const Icon(Icons.upload_file),
       ),
     );
   }
