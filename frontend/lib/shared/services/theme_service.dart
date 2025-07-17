@@ -21,9 +21,7 @@ class ThemeService extends ChangeNotifier {
   }
 
   ThemeData get theme {
-    if (_cachedTheme != null) {
-      return _cachedTheme!;
-    }
+    if (_cachedTheme != null) return _cachedTheme!;
     _cachedTheme = _buildTheme();
     return _cachedTheme!;
   }
@@ -150,7 +148,7 @@ class ThemeService extends ChangeNotifier {
           ),
         ),
       ),
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         color: isDark ? const Color(0xFF1E2732) : Colors.white,
         elevation: 0,
         shape: RoundedRectangleBorder(
@@ -230,8 +228,8 @@ class ThemeService extends ChangeNotifier {
       _currentTheme = ThemeType.values[prefs.getInt('themeType') ?? 0];
       _autoNightMode = prefs.getBool('autoNightMode') ?? false;
       _fontFamily = prefs.getString('fontFamily') ?? 'Default';
-      _nameColor = Color(prefs.getInt('nameColor') ?? Colors.purple.value);
-      _cachedTheme = null; // Clear cache to rebuild with new preferences
+      _nameColor = Color(prefs.getInt('nameColor') ?? Colors.purple.toARGB32());
+      _cachedTheme = null;
       notifyListeners();
     } catch (e) {
       debugPrint('Error loading theme preferences: $e');
@@ -241,7 +239,7 @@ class ThemeService extends ChangeNotifier {
   Future<void> setTheme(ThemeType theme) async {
     if (_currentTheme == theme) return;
     _currentTheme = theme;
-    _cachedTheme = null; // Clear cache to rebuild with new theme
+    _cachedTheme = null;
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setInt('themeType', theme.index);
@@ -268,7 +266,7 @@ class ThemeService extends ChangeNotifier {
   Future<void> setNameColor(Color color) async {
     _nameColor = color;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt('nameColor', color.value);
+    await prefs.setInt('nameColor', color.toARGB32());
     notifyListeners();
   }
 }

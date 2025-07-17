@@ -1,0 +1,1 @@
+/home/jovani/Downloads/AmenApp/frontend/build/app/intermediates/cxx/Debug/4l1c2f60/obj/x86_64

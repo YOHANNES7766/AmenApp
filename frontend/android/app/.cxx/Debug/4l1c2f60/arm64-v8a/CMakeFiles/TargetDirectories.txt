@@ -1,0 +1,2 @@
+/home/jovani/Downloads/AmenApp/frontend/android/app/.cxx/Debug/4l1c2f60/arm64-v8a/CMakeFiles/edit_cache.dir
+/home/jovani/Downloads/AmenApp/frontend/android/app/.cxx/Debug/4l1c2f60/arm64-v8a/CMakeFiles/rebuild_cache.dir

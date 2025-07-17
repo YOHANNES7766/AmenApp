@@ -241,8 +241,16 @@ class _AdminBooksScreenState extends State<AdminBooksScreen> {
   }
 
   Future<void> _pickFile(String type) async {
-    final result = await FilePicker.platform
-        .pickFiles(type: FileType.custom, allowedExtensions: [type]);
+    FileType fileType = FileType.any;
+    List<String>? allowedExtensions;
+    if (type == 'pdf' || type == 'epub') {
+      fileType = FileType.custom;
+      allowedExtensions = [type];
+    }
+    final result = await FilePicker.platform.pickFiles(
+      type: fileType,
+      allowedExtensions: allowedExtensions,
+    );
     if (result != null && result.files.isNotEmpty) {
       setState(() {
         if (type == 'pdf') {
@@ -251,6 +259,11 @@ class _AdminBooksScreenState extends State<AdminBooksScreen> {
           _epubFile = result.files.first;
         }
       });
+    } else {
+      // User canceled the picker or no file selected
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No file selected.')),
+      );
     }
   }
 
