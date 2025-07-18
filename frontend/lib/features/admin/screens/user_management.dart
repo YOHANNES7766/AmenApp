@@ -151,9 +151,26 @@ class _UserManagementState extends State<UserManagement> {
               child: _isLoading
                   ? Center(child: Text(localizations.loading))
                   : ListView.builder(
-                      itemCount: _users.length,
+                      itemCount: _users
+                          .where((user) =>
+                              user['name']
+                                  .toLowerCase()
+                                  .contains(_searchQuery.toLowerCase()) ||
+                              user['email']
+                                  .toLowerCase()
+                                  .contains(_searchQuery.toLowerCase()))
+                          .length,
                       itemBuilder: (context, index) {
-                        final user = _users[index];
+                        final filteredUsers = _users
+                            .where((user) =>
+                                user['name']
+                                    .toLowerCase()
+                                    .contains(_searchQuery.toLowerCase()) ||
+                                user['email']
+                                    .toLowerCase()
+                                    .contains(_searchQuery.toLowerCase()))
+                            .toList();
+                        final user = filteredUsers[index];
                         return Card(
                           margin: const EdgeInsets.symmetric(
                             horizontal: 16,

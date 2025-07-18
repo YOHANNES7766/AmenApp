@@ -7,6 +7,7 @@ class AnalyticsDashboard extends StatefulWidget {
   const AnalyticsDashboard({Key? key}) : super(key: key);
 
   @override
+  // ignore: library_private_types_in_public_api
   _AnalyticsDashboardState createState() => _AnalyticsDashboardState();
 }
 
@@ -292,7 +293,6 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
 
   Widget _buildMetricCard(
       String title, String value, IconData icon, Color color) {
-    AppLocalizations.of(context);
 
     return Card(
       elevation: 4,
@@ -454,8 +454,6 @@ class _AnalyticsDashboardState extends State<AnalyticsDashboard> {
   }
 
   Widget _buildPopularContentList(String title, List<dynamic> items) {
-    final localizations = AppLocalizations.of(context);
-
     return Card(
       elevation: 4,
       child: Padding(

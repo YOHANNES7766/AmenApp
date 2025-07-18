@@ -86,7 +86,7 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
     try {
       final authService = Provider.of<AuthService>(context, listen: false);
       final url = Uri.parse(
-          '${backendBaseUrl}/api/chat/messages/${widget.conversationId}');
+          '$backendBaseUrl/api/chat/messages/${widget.conversationId}');
       final response = await http.get(url, headers: {
         'Authorization': 'Bearer ${authService.accessToken}',
         'Accept': 'application/json',
@@ -113,7 +113,7 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
     await _pusher.init(
       apiKey: 'YOUR_PUSHER_KEY', // <-- Replace with your Pusher key
       cluster: 'YOUR_PUSHER_CLUSTER', // <-- Replace with your Pusher cluster
-      authEndpoint: '${backendBaseUrl}/broadcasting/auth',
+      authEndpoint: '$backendBaseUrl/broadcasting/auth',
       onAuthorizer: (channelName, socketId, options) async {
         return {
           'headers': {
@@ -156,7 +156,7 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
 
     try {
       final authService = Provider.of<AuthService>(context, listen: false);
-      final url = Uri.parse('${backendBaseUrl}/api/chat/send');
+      final url = Uri.parse('$backendBaseUrl/api/chat/send');
       final response = await http.post(
         url,
         headers: {
@@ -237,11 +237,11 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
         ),
         titleSpacing: 0,
         title: widget.userName == 'Saved Messages'
-            ? Row(
+            ? const Row(
                 children: [
-                  const Icon(Icons.bookmark, color: Colors.blue),
-                  const SizedBox(width: 12),
-                  const Text('Saved Messages',
+                  Icon(Icons.bookmark, color: Colors.blue),
+                  SizedBox(width: 12),
+                  Text('Saved Messages',
                       style: TextStyle(fontWeight: FontWeight.bold)),
                 ],
               )

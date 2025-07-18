@@ -57,7 +57,7 @@ class _AppDrawerState extends State<AppDrawer> {
     final localizations = AppLocalizations.of(context);
 
     // Helper function to get full image URL
-    String? _getFullImageUrl(String? imagePath) {
+    String? getFullImageUrl(String? imagePath) {
       if (imagePath == null || imagePath.isEmpty) return null;
       if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
         return imagePath;
@@ -71,7 +71,7 @@ class _AppDrawerState extends State<AppDrawer> {
       return imagePath;
     }
 
-    final fullImageUrl = _getFullImageUrl(_userProfile?['profile_picture']);
+    final fullImageUrl = getFullImageUrl(_userProfile?['profile_picture']);
 
     return Drawer(
       child: Container(

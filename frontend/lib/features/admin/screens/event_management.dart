@@ -264,8 +264,4 @@ class _EventManagementState extends State<EventManagement> {
     return date.toString();
   }
 
-  String _formatTime(dynamic time) {
-    if (time == null) return 'No time set';
-    return time.toString();
-  }
 }

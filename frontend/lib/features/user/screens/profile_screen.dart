@@ -69,7 +69,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         var imageUrl =
             await authService.uploadProfilePicture(File(pickedFile.path));
         if (imageUrl.startsWith('/storage/')) {
-          imageUrl = 'http://10.36.146.58:8000' + imageUrl;
+          imageUrl = 'http://10.36.146.58:8000$imageUrl';
         }
         await authService.updateProfilePicture(imageUrl);
         await _loadUserProfile();
@@ -239,9 +239,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
+                  const Text(
                     'Profile Information',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
                     ),

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../shared/services/auth_service.dart';
 import 'chat_conversation_screen.dart';
-import 'user_profile_screen.dart';
 
 String getFullImageUrl(String? imagePath) {
   if (imagePath == null || imagePath.isEmpty) {
@@ -196,7 +195,7 @@ class _ChatScreenState extends State<ChatScreen>
                                         userImage: '',
                                         conversationId: conversationId,
                                         receiverId: currentUserId!,
-                                        currentUserId: currentUserId!,
+                                        currentUserId: currentUserId,
                                       ),
                                     ),
                                   );

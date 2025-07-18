@@ -7,7 +7,7 @@ import '../screens/attendance_management.dart';
 import '../screens/language_management.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
-import 'package:flutter/foundation.dart'; // Added for kIsWeb
+// Added for kIsWeb
 
 class AdminDrawer extends StatefulWidget {
   final int selectedIndex;
