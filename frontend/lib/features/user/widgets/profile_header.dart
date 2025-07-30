@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/localization/app_localizations.dart';
+import '../../../shared/services/auth_service.dart';
 
 class ProfileHeader extends StatelessWidget {
   final Map<String, dynamic>? userProfile;
@@ -16,14 +17,15 @@ class ProfileHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Helper function to get full image URL
-    String? getFullImageUrl(String? imagePath) {
-      if (imagePath == null || imagePath.isEmpty) return null;
+    String getFullImageUrl(String? imagePath) {
+      if (imagePath == null || imagePath.isEmpty) {
+        return 'assets/images/profiles/default_profile.png';
+      }
       if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
         return imagePath;
       }
       if (imagePath.startsWith('/')) {
-        // TODO: Replace with your backend base URL if needed
-        return 'http://10.36.146.58:8000$imagePath';
+        return '$backendBaseUrl$imagePath';
       }
       return imagePath;
     }

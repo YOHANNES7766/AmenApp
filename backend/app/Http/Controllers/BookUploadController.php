@@ -18,15 +18,21 @@ class BookUploadController extends Controller
             'description' => 'nullable|string',
             'pdf' => 'nullable|file|mimes:pdf|max:20480',
             'epub' => 'nullable|file|mimes:epub|max:20480',
+            'cover' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:4096',
         ]);
 
         $pdfPath = null;
         $epubPath = null;
+        $coverUrl = null;
         if ($request->hasFile('pdf')) {
             $pdfPath = $request->file('pdf')->store('books', 'public');
         }
         if ($request->hasFile('epub')) {
             $epubPath = $request->file('epub')->store('books', 'public');
+        }
+        if ($request->hasFile('cover')) {
+            $coverPath = $request->file('cover')->store('covers', 'public');
+            $coverUrl = '/storage/' . $coverPath;
         }
 
         $book = Book::create([
@@ -37,6 +43,8 @@ class BookUploadController extends Controller
             'description' => $request->description,
             'pdf_path' => $pdfPath,
             'epub_path' => $epubPath,
+            'approved' => false,
+            'cover_url' => $coverUrl,
         ]);
 
         return response()->json($book, 201);

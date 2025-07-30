@@ -1,0 +1,67 @@
+# Dependencies
+node_modules/
+vendor/
+.pub-cache/
+.pub/
+
+# Build outputs
+build/
+dist/
+*.zip
+*.tar.gz
+
+# Environment files
+.env
+.env.local
+.env.production
+.env.backup
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Database files
+*.sqlite
+*.sqlite3
+*.db
+
+# Storage files
+storage/app/public/
+storage/logs/
+storage/framework/cache/
+storage/framework/sessions/
+storage/framework/views/
+
+# Cache
+.cache/
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# Temporary files
+*.tmp
+*.temp
+temp/
+tmp/
+
+# Large media files (if any)
+*.mp4
+*.avi
+*.mov
+*.wmv
+*.flv
+*.webm
+
+# Backup files
+*.bak
+*.backup 

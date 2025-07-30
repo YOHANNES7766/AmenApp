@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../shared/services/auth_service.dart';
 
 class UserProfileScreen extends StatelessWidget {
   final Map<String, dynamic> user;
@@ -12,7 +13,7 @@ class UserProfileScreen extends StatelessWidget {
       return imagePath;
     }
     if (imagePath.startsWith('/')) {
-      return 'http://10.36.146.58:8000$imagePath';
+      return '$backendBaseUrl$imagePath';
     }
     return imagePath;
   }

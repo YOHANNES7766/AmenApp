@@ -3,10 +3,13 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'dart:async';
 import 'dart:io';
+import 'package:flutter/material.dart'; // Added for ScaffoldMessenger
 
-// TODO: Set your computer's LAN IP address here for physical device testing
-const String backendBaseUrl =
-    'http://10.36.146.58:8000'; // <- use your real LAN IP
+// For real device on same WiFi as your computer, use your computer's LAN IP:
+const String backendBaseUrl = 'https://your-production-domain.com';
+
+// For Android emulator use:
+//const String backendBaseUrl = 'http://10.0.2.2:8001';
 
 class AuthService extends ChangeNotifier {
   bool _isAuthenticated = false;
@@ -524,6 +527,28 @@ class AuthService extends ChangeNotifier {
       return jsonDecode(response.body) as Map<String, dynamic>;
     } else {
       throw 'Failed to fetch saved messages: \\${response.statusCode}';
+    }
+  }
+
+  /// Checks backend connectivity at app startup
+  static Future<bool> checkBackendConnection(BuildContext context) async {
+    try {
+      final url = Uri.parse('$backendBaseUrl/api/test-db');
+      final response = await http.get(url).timeout(const Duration(seconds: 5));
+      if (response.statusCode == 200) {
+        return true;
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Backend error: ${response.statusCode}')),
+        );
+        return false;
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Cannot connect to backend. Check IP/port.')),
+      );
+      return false;
     }
   }
 }

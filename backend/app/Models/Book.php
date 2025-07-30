@@ -14,5 +14,7 @@ class Book extends Model
         'pdf_path',
         'epub_path',
         'description',
+        'approved',
+        'cover_url',
     ];
 }

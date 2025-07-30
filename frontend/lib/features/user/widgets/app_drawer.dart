@@ -57,16 +57,15 @@ class _AppDrawerState extends State<AppDrawer> {
     final localizations = AppLocalizations.of(context);
 
     // Helper function to get full image URL
-    String? getFullImageUrl(String? imagePath) {
-      if (imagePath == null || imagePath.isEmpty) return null;
+    String getFullImageUrl(String? imagePath) {
+      if (imagePath == null || imagePath.isEmpty) {
+        return 'assets/images/profiles/default_profile.png';
+      }
       if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
         return imagePath;
       }
-      if (imagePath.startsWith('/storage/')) {
-        return 'http://10.36.146.58:8000$imagePath';
-      }
       if (imagePath.startsWith('/')) {
-        return 'http://10.36.146.58:8000$imagePath';
+        return '$backendBaseUrl$imagePath';
       }
       return imagePath;
     }

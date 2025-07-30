@@ -10,15 +10,23 @@ class BookController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        $books = Book::all();
+        $approved = $request->query('approved');
+        $query = Book::query();
+        if ($approved !== null) {
+            $query->where('approved', filter_var($approved, FILTER_VALIDATE_BOOLEAN));
+        }
+        $books = $query->get();
         foreach ($books as $book) {
             if ($book->pdf_path) {
                 $book->pdf_url = url('/storage/books/' . $book->pdf_path);
             }
             if ($book->epub_path) {
                 $book->epub_url = url('/storage/books/' . $book->epub_path);
+            }
+            if ($book->cover_url && !str_starts_with($book->cover_url, 'http')) {
+                $book->cover_url = url($book->cover_url);
             }
         }
         return response()->json($books);
@@ -73,5 +81,16 @@ class BookController extends Controller
         }
         $mimeType = $format === 'epub' ? 'application/epub+zip' : 'application/pdf';
         return response()->download($storagePath, basename($filePath), ['Content-Type' => $mimeType]);
+    }
+
+    /**
+     * Approve a book (admin only)
+     */
+    public function approve($id)
+    {
+        $book = Book::findOrFail($id);
+        $book->approved = true;
+        $book->save();
+        return response()->json(['message' => 'Book approved']);
     }
 }

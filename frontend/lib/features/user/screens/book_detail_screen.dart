@@ -4,7 +4,8 @@ import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import '../../../shared/services/auth_service.dart';
 
-const String backendBaseUrl = 'http://10.36.146.58:8000'; // Update as needed
+const String backendBaseUrl =
+    'https://your-production-domain.com'; // Update as needed
 
 class BookDetailScreen extends StatefulWidget {
   final String title;

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io'; // Added for File
-import '../../../shared/services/auth_service.dart';
+import '../../../shared/services/auth_service.dart' as auth;
 import '../../../core/localization/app_localizations.dart';
 import 'prayer_requests_screen.dart';
 import 'completed_devotions_screen.dart';
@@ -37,7 +37,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (!mounted) return;
     setState(() => _isLoading = true);
     try {
-      final authService = Provider.of<AuthService>(context, listen: false);
+      final authService = Provider.of<auth.AuthService>(context, listen: false);
       final profile = await authService.fetchUserProfile();
       if (!mounted) return;
       setState(() {
@@ -65,11 +65,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
       );
 
       if (pickedFile != null) {
-        final authService = Provider.of<AuthService>(context, listen: false);
+        final authService =
+            Provider.of<auth.AuthService>(context, listen: false);
         var imageUrl =
             await authService.uploadProfilePicture(File(pickedFile.path));
         if (imageUrl.startsWith('/storage/')) {
-          imageUrl = 'http://10.36.146.58:8000$imageUrl';
+          imageUrl = '${auth.backendBaseUrl}$imageUrl';
         }
         await authService.updateProfilePicture(imageUrl);
         await _loadUserProfile();
@@ -438,7 +439,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 subtitle: AppLocalizations.of(context).signOut,
                 onTap: () {
                   final authService =
-                      Provider.of<AuthService>(context, listen: false);
+                      Provider.of<auth.AuthService>(context, listen: false);
                   authService.logout().then((_) {
                     if (mounted) {
                       Navigator.pushReplacementNamed(context, '/login');
@@ -540,7 +541,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       return imagePath;
     }
     if (imagePath.startsWith('/')) {
-      return 'http://10.36.146.58:8000$imagePath';
+      return '${auth.backendBaseUrl}$imagePath';
     }
     return imagePath;
   }

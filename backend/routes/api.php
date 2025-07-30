@@ -54,6 +54,7 @@ Route::middleware('auth:sanctum')->group(function () {
 Route::get('/books', [BookController::class, 'index']);
 Route::get('/books/{id}/download', [BookController::class, 'download']);
 Route::post('/books/upload', [\App\Http\Controllers\BookUploadController::class, 'store']);
+Route::patch('/books/{id}/approve', [\App\Http\Controllers\BookController::class, 'approve']);
 
 // Book comments and notes
 Route::middleware('auth:sanctum')->group(function () {

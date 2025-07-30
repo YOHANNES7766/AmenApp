@@ -29,7 +29,8 @@ class Book {
 }
 
 class AdminBooksScreen extends StatefulWidget {
-  AdminBooksScreen({Key? key}) : super(key: key) {
+  final List<Book>? books;
+  AdminBooksScreen({Key? key, this.books}) : super(key: key) {
     print('AdminBooksScreen constructor called');
   }
 
@@ -45,6 +46,33 @@ class _AdminBooksScreenState extends State<AdminBooksScreen> {
   Set<String> _downloadedBookIds = {};
   Map<String, String> _localBookPaths = {};
   final bool _showMyLibrary = false;
+  List<Book> _books = [];
+  bool _isLoadingBooks = false;
+  List<Book> get filteredBooks {
+    final query = _searchController.text.toLowerCase();
+    List<Book> filtered = _books;
+    // Filter by search query
+    if (query.isNotEmpty) {
+      filtered = filtered.where((book) {
+        return book.title.toLowerCase().contains(query) ||
+            book.author.toLowerCase().contains(query);
+      }).toList();
+    }
+    // Pending Approval section: treat both approved: 0 and approved: false as pending
+    if (_selectedCategoryIndex == 1) {
+      filtered = filtered
+          .where((book) => book.isApproved == false || book.isApproved == 0)
+          .toList();
+    } else if (_selectedCategoryIndex == 2) {
+      // Categories (show all for now)
+    }
+    if (_showApprovedOnly) {
+      filtered = filtered
+          .where((book) => book.isApproved == true || book.isApproved == 1)
+          .toList();
+    }
+    return filtered;
+  }
 
   // Upload book fields
   final TextEditingController _uploadTitleController = TextEditingController();
@@ -63,6 +91,12 @@ class _AdminBooksScreenState extends State<AdminBooksScreen> {
   void initState() {
     super.initState();
     print('AdminBooksScreen initState called');
+    if (widget.books != null) {
+      _books = widget.books!;
+      _isLoadingBooks = false;
+    } else {
+      _fetchBooks();
+    }
     _loadOfflineBooks();
   }
 
@@ -93,94 +127,60 @@ class _AdminBooksScreenState extends State<AdminBooksScreen> {
     'all_books',
     'pending_approval',
     'categories',
-    'authors'
+    'Authors',
+    'Languages',
   ];
 
-  final List<Book> _books = [
-    Book(
-      id: 1,
-      title: 'Rich Dad Poor Dad',
-      author: 'Robert T. Kiyosaki',
-      imageUrl: 'assets/images/books/rich_dad.jpg',
-      rating: 4.5,
-      isApproved: true,
-      category: 'Finance',
-    ),
-    Book(
-      id: 2,
-      title: 'The Lean Startup',
-      author: 'Eric Ries',
-      imageUrl: 'assets/images/books/lean_startup.jpg',
-      rating: 4.7,
-      isApproved: true,
-      category: 'Business',
-    ),
-    Book(
-      id: 3,
-      title: 'The 4-Hour Work Week',
-      author: 'Timothy Ferriss',
-      imageUrl: 'assets/images/books/4hour_week.jpg',
-      rating: 4.6,
-      isApproved: false,
-      category: 'Productivity',
-    ),
-    Book(
-      id: 4,
-      title: 'The Subtle Art of Not Giving a F*ck',
-      author: 'Mark Manson',
-      imageUrl: 'assets/images/books/subtle_art.jpg',
-      rating: 4.5,
-      isApproved: true,
-      category: 'Self-Help',
-    ),
-    Book(
-      id: 5,
-      title: 'The Modern Alphabet',
-      author: 'Charles Duhigg',
-      imageUrl: 'assets/images/books/modern_alphabet.jpg',
-      rating: 4.8,
-      isApproved: false,
-      category: 'Psychology',
-    ),
-    Book(
-      id: 6,
-      title: 'Think and Grow Rich',
-      author: 'Napoleon Hill',
-      imageUrl: 'assets/images/books/think_grow_rich.jpg',
-      rating: 4.9,
-      isApproved: true,
-      category: 'Success',
-    ),
-  ];
-
-  List<Book> get filteredBooks {
-    final query = _searchController.text.toLowerCase();
-    List<Book> filtered = _books;
-
-    // Filter by search query
-    if (query.isNotEmpty) {
-      filtered = filtered.where((book) {
-        return book.title.toLowerCase().contains(query) ||
-            book.author.toLowerCase().contains(query);
-      }).toList();
+  Future<void> _fetchBooks() async {
+    setState(() => _isLoadingBooks = true);
+    try {
+      final dio = Dio();
+      final response =
+          await dio.get('https://your-production-domain.com/api/books');
+      if (response.statusCode == 200) {
+        final List data = response.data;
+        setState(() {
+          _books = data
+              .map((b) => Book(
+                    id: b['id'],
+                    title: b['title'],
+                    author: b['author'],
+                    imageUrl:
+                        b['pdf_url'] ?? 'assets/images/books/default_book.png',
+                    rating: 4.5, // Placeholder, update as needed
+                    isApproved: b['approved'] is bool
+                        ? b['approved']
+                        : b['approved'] == 1,
+                    category: b['category'] ?? 'Uncategorized',
+                  ))
+              .toList();
+        });
+        debugPrint(
+            'Fetched books: ${_books.map((b) => '[id: ${b.id}, title: ${b.title}, approved: ${b.isApproved}]').join(', ')}');
+      }
+    } catch (e) {
+      debugPrint('Error fetching books: \\${e.toString()}');
     }
+    setState(() => _isLoadingBooks = false);
+  }
 
-    // Filter by category
-    if (_selectedCategoryIndex == 1) {
-      // Pending Approval
-      filtered = filtered.where((book) => !book.isApproved).toList();
-    } else if (_selectedCategoryIndex == 2) {
-      // Categories
-      // In a real app, we would show a list of categories
-      // For now, we'll just return all books
+  Future<void> _approveBook(int bookId) async {
+    try {
+      final dio = Dio();
+      final response = await dio.patch(
+          'https://your-production-domain.com/api/books/$bookId/approve');
+      if (response.statusCode == 200) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Book approved!')),
+        );
+        await _fetchBooks(); // Always refresh after approval
+      }
+    } catch (e) {
+      debugPrint('Error approving book: \\${e.toString()}');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error approving book: \\${e.toString()}')),
+      );
     }
-
-    // Filter by approval status if toggle is on
-    if (_showApprovedOnly) {
-      filtered = filtered.where((book) => book.isApproved).toList();
-    }
-
-    return filtered;
   }
 
   Future<void> _downloadBook(Book book, String format) async {
@@ -259,8 +259,9 @@ class _AdminBooksScreenState extends State<AdminBooksScreen> {
           _epubFile = result.files.first;
         }
       });
+      debugPrint(
+          'Picked file: \\${result.files.first.name} (\\${result.files.first.path})');
     } else {
-      // User canceled the picker or no file selected
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('No file selected.')),
       );
@@ -270,6 +271,13 @@ class _AdminBooksScreenState extends State<AdminBooksScreen> {
   Future<void> _uploadBook() async {
     setState(() => _isUploading = true);
     try {
+      if (_pdfFile == null && _epubFile == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please select a PDF or EPUB file.')),
+        );
+        setState(() => _isUploading = false);
+        return;
+      }
       final dio = Dio();
       final formData = FormData.fromMap({
         'title': _uploadTitleController.text.trim(),
@@ -283,9 +291,11 @@ class _AdminBooksScreenState extends State<AdminBooksScreen> {
         if (_epubFile != null)
           'epub': await MultipartFile.fromFile(_epubFile!.path!,
               filename: _epubFile!.name),
+        // If admin, set approved true
+        if (_isAdminUser()) 'approved': true,
       });
       final response = await dio.post(
-        'http://10.36.146.58:8000/api/books/upload',
+        'https://your-production-domain.com/api/books/upload',
         data: formData,
         options: Options(headers: {'Accept': 'application/json'}),
       );
@@ -301,87 +311,133 @@ class _AdminBooksScreenState extends State<AdminBooksScreen> {
           _pdfFile = null;
           _epubFile = null;
         });
-        // Optionally refresh book list from backend here
+        await _fetchBooks(); // Always refresh after upload
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Upload failed: \\${response.data}')));
       }
     } catch (e) {
+      debugPrint('Upload error: \\${e.toString()}');
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text('Error: \\${e.toString()}')));
     }
     setState(() => _isUploading = false);
   }
 
+  bool _isAdminUser() {
+    // TODO: Replace with your actual admin check logic (e.g., from provider or auth service)
+    // For now, always return true for demonstration
+    return true;
+  }
+
   void _showUploadDialog() {
+    debugPrint('Upload dialog opened');
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Upload Book'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: _uploadTitleController,
-                decoration: const InputDecoration(labelText: 'Title'),
-              ),
-              TextField(
-                controller: _uploadAuthorController,
-                decoration: const InputDecoration(labelText: 'Author'),
-              ),
-              TextField(
-                controller: _uploadCategoryController,
-                decoration: const InputDecoration(labelText: 'Category'),
-              ),
-              TextField(
-                controller: _uploadLanguageController,
-                decoration: const InputDecoration(labelText: 'Language'),
-              ),
-              TextField(
-                controller: _uploadDescriptionController,
-                decoration: const InputDecoration(labelText: 'Description'),
-                maxLines: 2,
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  ElevatedButton.icon(
-                    onPressed: () => _pickFile('pdf'),
-                    icon: const Icon(Icons.picture_as_pdf),
-                    label: Text(_pdfFile != null ? _pdfFile!.name : 'Pick PDF'),
+      builder: (context) {
+        debugPrint('Upload dialog builder called');
+        return AlertDialog(
+          title: const Text('Upload Book'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: _uploadTitleController,
+                  decoration: const InputDecoration(labelText: 'Title'),
+                ),
+                TextField(
+                  controller: _uploadAuthorController,
+                  decoration: const InputDecoration(labelText: 'Author'),
+                ),
+                TextField(
+                  controller: _uploadCategoryController,
+                  decoration: const InputDecoration(labelText: 'Category'),
+                ),
+                TextField(
+                  controller: _uploadLanguageController,
+                  decoration: const InputDecoration(labelText: 'Language'),
+                ),
+                TextField(
+                  controller: _uploadDescriptionController,
+                  decoration: const InputDecoration(labelText: 'Description'),
+                  maxLines: 2,
+                ),
+                const SizedBox(height: 8),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      ElevatedButton.icon(
+                        onPressed: () => _pickFile('pdf'),
+                        icon: const Icon(Icons.picture_as_pdf),
+                        label: Text(
+                            _pdfFile != null ? _pdfFile!.name : 'Pick PDF'),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton.icon(
+                        onPressed: () => _pickFile('epub'),
+                        icon: const Icon(Icons.book),
+                        label: Text(
+                            _epubFile != null ? _epubFile!.name : 'Pick EPUB'),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 8),
-                  ElevatedButton.icon(
-                    onPressed: () => _pickFile('epub'),
-                    icon: const Icon(Icons.book),
-                    label:
-                        Text(_epubFile != null ? _epubFile!.name : 'Pick EPUB'),
-                  ),
-                ],
-              ),
-            ],
+                ),
+              ],
+            ),
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: _isUploading
-                ? null
-                : () async {
-                    await _uploadBook();
-                    if (mounted) Navigator.pop(context);
-                  },
-            child: _isUploading
-                ? const CircularProgressIndicator()
-                : const Text('Upload'),
-          ),
-        ],
-      ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: _isUploading
+                  ? null
+                  : () async {
+                      final prevUploading = _isUploading;
+                      await _uploadBook();
+                      // Only close dialog if upload was successful
+                      if (mounted &&
+                          !prevUploading &&
+                          !_isUploading &&
+                          _pdfFile == null &&
+                          _epubFile == null) {
+                        Navigator.pop(context);
+                      }
+                    },
+              child: _isUploading
+                  ? const CircularProgressIndicator()
+                  : const Text('Upload'),
+            ),
+          ],
+        );
+      },
     );
+  }
+
+  Future<void> _declineBook(int bookId) async {
+    try {
+      final dio = Dio();
+      final response = await dio
+          .delete('https://your-production-domain.com/api/books/$bookId');
+      if (response.statusCode == 200) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Book declined and deleted!')),
+        );
+        await _fetchBooks();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to decline book: \\${response.data}')),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error declining book: \\${e.toString()}');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error declining book: \\${e.toString()}')),
+      );
+    }
   }
 
   @override
@@ -390,405 +446,457 @@ class _AdminBooksScreenState extends State<AdminBooksScreen> {
 
     return Scaffold(
       body: SafeArea(
-        child: Column(
-          children: [
-            // Search and Icons Row
-            Container(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-              child: Row(
+        child: _isLoadingBooks
+            ? const Center(child: CircularProgressIndicator())
+            : Column(
                 children: [
-                  Expanded(
-                    child: Container(
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: Colors.grey[200],
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: TextField(
-                        controller: _searchController,
-                        onChanged: (value) => setState(() {}),
-                        decoration: InputDecoration(
-                          hintText: localizations.search,
-                          prefixIcon: const Icon(Icons.search, size: 20),
-                          border: InputBorder.none,
-                          contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 8),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  IconButton(
-                    icon: const Icon(Icons.library_books, size: 24),
-                    onPressed: () {
-                      // Show category management
-                    },
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                  ),
-                  const SizedBox(width: 8),
-                  IconButton(
-                    icon: const Icon(Icons.notifications_outlined, size: 24),
-                    onPressed: () {
-                      // Show notifications
-                    },
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                  ),
-                ],
-              ),
-            ),
-
-            // Categories
-            Container(
-              height: 40,
-              margin: const EdgeInsets.only(bottom: 8),
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: _categories.length,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                itemBuilder: (context, index) {
-                  String categoryText;
-                  switch (_categories[index]) {
-                    case 'all_books':
-                      categoryText = localizations.books;
-                      break;
-                    case 'pending_approval':
-                      categoryText = localizations.pending;
-                      break;
-                    case 'categories':
-                      categoryText = localizations.categories;
-                      break;
-                    case 'authors':
-                      categoryText = localizations.authors;
-                      break;
-                    default:
-                      categoryText = _categories[index];
-                  }
-
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 24),
-                    child: GestureDetector(
-                      onTap: () =>
-                          setState(() => _selectedCategoryIndex = index),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            categoryText,
-                            style: TextStyle(
-                              color: _selectedCategoryIndex == index
-                                  ? Colors.green
-                                  : Colors.grey,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 14,
+                  // Search and Icons Row
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Container(
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: Colors.grey[200],
+                              borderRadius: BorderRadius.circular(8),
                             ),
-                          ),
-                          const SizedBox(height: 4),
-                          if (_selectedCategoryIndex == index)
-                            Container(
-                              height: 2,
-                              width: 20,
-                              decoration: BoxDecoration(
-                                color: Colors.green,
-                                borderRadius: BorderRadius.circular(2),
+                            child: TextField(
+                              controller: _searchController,
+                              onChanged: (value) => setState(() {}),
+                              decoration: InputDecoration(
+                                hintText: localizations.search,
+                                prefixIcon: const Icon(Icons.search, size: 20),
+                                border: InputBorder.none,
+                                contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 16, vertical: 8),
                               ),
                             ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-
-            // Approval Toggle
-            Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-              child: Row(
-                children: [
-                  Text(
-                    localizations.showApprovedOnly,
-                    style: const TextStyle(fontSize: 14),
-                  ),
-                  const Spacer(),
-                  Switch(
-                    value: _showApprovedOnly,
-                    onChanged: (value) {
-                      setState(() {
-                        _showApprovedOnly = value;
-                      });
-                    },
-                    activeColor: Colors.green,
-                  ),
-                ],
-              ),
-            ),
-
-            // Promotional Banner
-            Container(
-              margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.teal[50],
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          localizations.bookManagement,
-                          style: const TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.teal,
                           ),
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          icon: const Icon(Icons.library_books, size: 24),
+                          onPressed: () {
+                            // Show category management
+                          },
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          icon: const Icon(Icons.notifications_outlined,
+                              size: 24),
+                          onPressed: () {
+                            // Show notifications
+                          },
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Categories
+                  Container(
+                    height: 40,
+                    margin: const EdgeInsets.only(bottom: 8),
+                    child: ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: _categories.length,
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      itemBuilder: (context, index) {
+                        String categoryText;
+                        switch (_categories[index]) {
+                          case 'all_books':
+                            categoryText = localizations.books;
+                            break;
+                          case 'pending_approval':
+                            categoryText = localizations.pending;
+                            break;
+                          case 'categories':
+                            categoryText = localizations.categories;
+                            break;
+                          case 'authors':
+                            categoryText = localizations.authors;
+                            break;
+                          default:
+                            categoryText = _categories[index];
+                        }
+
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 24),
+                          child: GestureDetector(
+                            onTap: () =>
+                                setState(() => _selectedCategoryIndex = index),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  categoryText,
+                                  style: TextStyle(
+                                    color: _selectedCategoryIndex == index
+                                        ? Colors.green
+                                        : Colors.grey,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                if (_selectedCategoryIndex == index)
+                                  Container(
+                                    height: 2,
+                                    width: 20,
+                                    decoration: BoxDecoration(
+                                      color: Colors.green,
+                                      borderRadius: BorderRadius.circular(2),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+
+                  // Approval Toggle
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16.0, vertical: 8.0),
+                    child: Row(
+                      children: [
                         Text(
-                          localizations.manageBooks,
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.teal[700],
+                          localizations.showApprovedOnly,
+                          style: const TextStyle(fontSize: 14),
+                        ),
+                        const Spacer(),
+                        Switch(
+                          value: _showApprovedOnly,
+                          onChanged: (value) {
+                            setState(() {
+                              _showApprovedOnly = value;
+                            });
+                          },
+                          activeColor: Colors.green,
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Promotional Banner
+                  Container(
+                    margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.teal[50],
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                localizations.bookManagement,
+                                style: const TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.teal,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                localizations.manageBooks,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.teal[700],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.teal,
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Text(
+                            localizations.addNew,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                       ],
                     ),
                   ),
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: Colors.teal,
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Text(
-                      localizations.addNew,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
 
-            // Books Grid
-            Expanded(
-              child: GridView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 3,
-                  childAspectRatio: 0.55,
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 16,
-                ),
-                itemCount: (_showMyLibrary
-                        ? _books
-                            .where((b) =>
-                                _downloadedBookIds.contains(b.id.toString()))
-                            .toList()
-                        : filteredBooks)
-                    .length,
-                itemBuilder: (context, index) {
-                  final book = _showMyLibrary
-                      ? _books
-                          .where((b) =>
-                              _downloadedBookIds.contains(b.id.toString()))
-                          .toList()[index]
-                      : filteredBooks[index];
-                  return GestureDetector(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => BookDetailScreen(
-                            title: book.title,
-                            author: book.author,
-                            imageUrl: book.imageUrl,
-                            category: book.category,
-                            rating: book.rating,
-                            bookId: book.id,
-                          ),
-                        ),
-                      );
-                    },
-                    child: Stack(
-                      children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              flex: 3,
-                              child: Stack(
+                  // Books Grid
+                  Expanded(
+                    child: GridView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 3,
+                        childAspectRatio: 0.55,
+                        crossAxisSpacing: 12,
+                        mainAxisSpacing: 16,
+                      ),
+                      itemCount: (_showMyLibrary
+                              ? _books
+                                  .where((b) => _downloadedBookIds
+                                      .contains(b.id.toString()))
+                                  .toList()
+                              : filteredBooks)
+                          .length,
+                      itemBuilder: (context, index) {
+                        final book = _showMyLibrary
+                            ? _books
+                                .where((b) => _downloadedBookIds
+                                    .contains(b.id.toString()))
+                                .toList()[index]
+                            : filteredBooks[index];
+                        return GestureDetector(
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => BookDetailScreen(
+                                  title: book.title,
+                                  author: book.author,
+                                  imageUrl: book.imageUrl,
+                                  category: book.category,
+                                  rating: book.rating,
+                                  bookId: book.id,
+                                ),
+                              ),
+                            );
+                          },
+                          child: Stack(
+                            children: [
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Container(
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(8),
-                                      image: DecorationImage(
-                                        image: AssetImage(book.imageUrl),
-                                        fit: BoxFit.cover,
-                                      ),
-                                    ),
-                                  ),
-                                  if (!book.isApproved)
-                                    Positioned(
-                                      top: 4,
-                                      right: 4,
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 6,
-                                          vertical: 2,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: Colors.red,
-                                          borderRadius:
-                                              BorderRadius.circular(4),
-                                        ),
-                                        child: Text(
-                                          localizations.pending,
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 8,
-                                            fontWeight: FontWeight.bold,
+                                  Expanded(
+                                    flex: 3,
+                                    child: Stack(
+                                      children: [
+                                        Container(
+                                          decoration: BoxDecoration(
+                                            borderRadius:
+                                                BorderRadius.circular(8),
+                                            image: DecorationImage(
+                                              image: AssetImage(book.imageUrl),
+                                              fit: BoxFit.cover,
+                                            ),
                                           ),
                                         ),
-                                      ),
-                                    ),
-                                  if (_downloadedBookIds
-                                      .contains(book.id.toString()))
-                                    const Positioned(
-                                      top: 4,
-                                      left: 4,
-                                      child: Icon(Icons.check_circle,
-                                          color: Colors.green, size: 18),
-                                    ),
-                                  if (_downloadProgress
-                                      .containsKey(book.id.toString()))
-                                    Positioned.fill(
-                                      child: Center(
-                                        child: CircularProgressIndicator(
-                                            value: _downloadProgress[
-                                                book.id.toString()]),
-                                      ),
-                                    ),
-                                  Positioned(
-                                    bottom: 4,
-                                    right: 4,
-                                    child: IconButton(
-                                      icon: Icon(
-                                        _downloadedBookIds
-                                                .contains(book.id.toString())
-                                            ? Icons.open_in_new
-                                            : Icons.download,
-                                        color: _downloadedBookIds
-                                                .contains(book.id.toString())
-                                            ? Colors.blue
-                                            : Colors.grey,
-                                      ),
-                                      onPressed: _downloadedBookIds
-                                              .contains(book.id.toString())
-                                          ? () => _openBook(book, 'pdf')
-                                          : () => _downloadBook(book, 'pdf'),
+                                        if (!book.isApproved)
+                                          Positioned(
+                                            top: 4,
+                                            right: 4,
+                                            child: Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                horizontal: 6,
+                                                vertical: 2,
+                                              ),
+                                              decoration: BoxDecoration(
+                                                color: Colors.red,
+                                                borderRadius:
+                                                    BorderRadius.circular(4),
+                                              ),
+                                              child: Text(
+                                                localizations.pending,
+                                                style: const TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: 8,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        if (!book.isApproved)
+                                          Positioned(
+                                            bottom: 4,
+                                            left: 4,
+                                            child: Row(
+                                              children: [
+                                                ElevatedButton(
+                                                  onPressed: () =>
+                                                      _approveBook(book.id),
+                                                  style:
+                                                      ElevatedButton.styleFrom(
+                                                    backgroundColor:
+                                                        Colors.green,
+                                                    minimumSize:
+                                                        const Size(40, 24),
+                                                    padding: EdgeInsets.zero,
+                                                  ),
+                                                  child: const Text('Approve',
+                                                      style: TextStyle(
+                                                          fontSize: 10)),
+                                                ),
+                                                const SizedBox(width: 4),
+                                                ElevatedButton(
+                                                  onPressed: () =>
+                                                      _declineBook(book.id),
+                                                  style:
+                                                      ElevatedButton.styleFrom(
+                                                    backgroundColor: Colors.red,
+                                                    minimumSize:
+                                                        const Size(40, 24),
+                                                    padding: EdgeInsets.zero,
+                                                  ),
+                                                  child: const Text('Decline',
+                                                      style: TextStyle(
+                                                          fontSize: 10)),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        if (book.isApproved)
+                                          Positioned(
+                                            bottom: 4,
+                                            right: 4,
+                                            child: IconButton(
+                                              icon: Icon(
+                                                _downloadedBookIds.contains(
+                                                        book.id.toString())
+                                                    ? Icons.open_in_new
+                                                    : Icons.download,
+                                                color:
+                                                    _downloadedBookIds.contains(
+                                                            book.id.toString())
+                                                        ? Colors.blue
+                                                        : Colors.grey,
+                                              ),
+                                              onPressed: _downloadedBookIds
+                                                      .contains(
+                                                          book.id.toString())
+                                                  ? () => _openBook(book, 'pdf')
+                                                  : () => _downloadBook(
+                                                      book, 'pdf'),
+                                            ),
+                                          ),
+                                        if (_downloadedBookIds
+                                            .contains(book.id.toString()))
+                                          const Positioned(
+                                            top: 4,
+                                            left: 4,
+                                            child: Icon(Icons.check_circle,
+                                                color: Colors.green, size: 18),
+                                          ),
+                                        if (_downloadProgress
+                                            .containsKey(book.id.toString()))
+                                          Positioned.fill(
+                                            child: Center(
+                                              child: CircularProgressIndicator(
+                                                  value: _downloadProgress[
+                                                      book.id.toString()]),
+                                            ),
+                                          ),
+                                      ],
                                     ),
                                   ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              book.title,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w500,
-                                fontSize: 12,
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              book.author,
-                              style: TextStyle(
-                                color: Colors.grey[600],
-                                fontSize: 10,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            const SizedBox(height: 2),
-                            Row(
-                              children: [
-                                SizedBox(
-                                  width: 50,
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    mainAxisAlignment: MainAxisAlignment.start,
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    book.title,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w500,
+                                      fontSize: 12,
+                                    ),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    book.author,
+                                    style: TextStyle(
+                                      color: Colors.grey[600],
+                                      fontSize: 10,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Row(
                                     children: [
-                                      ...List.generate(5, (index) {
-                                        return Padding(
-                                          padding: EdgeInsets.only(
-                                              right: index < 4 ? 0.5 : 0),
-                                          child: Icon(
-                                            Icons.star,
-                                            size: 7,
-                                            color: index < (book.rating).floor()
-                                                ? Colors.amber
-                                                : Colors.grey[300],
+                                      SizedBox(
+                                        width: 50,
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.start,
+                                          children: [
+                                            ...List.generate(5, (index) {
+                                              return Padding(
+                                                padding: EdgeInsets.only(
+                                                    right: index < 4 ? 0.5 : 0),
+                                                child: Icon(
+                                                  Icons.star,
+                                                  size: 7,
+                                                  color: index <
+                                                          (book.rating).floor()
+                                                      ? Colors.amber
+                                                      : Colors.grey[300],
+                                                ),
+                                              );
+                                            }),
+                                            const SizedBox(width: 1),
+                                            Text(
+                                              book.rating.toString(),
+                                              style: TextStyle(
+                                                color: Colors.grey[600],
+                                                fontSize: 7,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const Spacer(),
+                                      Flexible(
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 4,
+                                            vertical: 1,
                                           ),
-                                        );
-                                      }),
-                                      const SizedBox(width: 1),
-                                      Text(
-                                        book.rating.toString(),
-                                        style: TextStyle(
-                                          color: Colors.grey[600],
-                                          fontSize: 7,
+                                          decoration: BoxDecoration(
+                                            color: Colors.grey[200],
+                                            borderRadius:
+                                                BorderRadius.circular(4),
+                                          ),
+                                          child: Text(
+                                            book.category,
+                                            style: TextStyle(
+                                              color: Colors.grey[700],
+                                              fontSize: 8,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
                                         ),
                                       ),
                                     ],
                                   ),
-                                ),
-                                const Spacer(),
-                                Flexible(
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 4,
-                                      vertical: 1,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Colors.grey[200],
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: Text(
-                                      book.category,
-                                      style: TextStyle(
-                                        color: Colors.grey[700],
-                                        fontSize: 8,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ],
+                                ],
+                              ),
+                            ],
+                          ),
+                        );
+                      },
                     ),
-                  );
-                },
+                  ),
+                ],
               ),
-            ),
-          ],
-        ),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _showUploadDialog,

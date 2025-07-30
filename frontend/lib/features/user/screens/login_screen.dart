@@ -20,6 +20,15 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _obscurePassword = true;
 
   @override
+  void initState() {
+    super.initState();
+    // Check backend connectivity at login screen startup
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      AuthService.checkBackendConnection(context);
+    });
+  }
+
+  @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();

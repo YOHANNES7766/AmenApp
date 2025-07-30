@@ -19,6 +19,7 @@ return new class extends Migration
             $table->string('language')->nullable();
             $table->string('pdf_path')->nullable();
             $table->string('epub_path')->nullable();
+            $table->string('cover_url')->nullable();
             $table->text('description')->nullable();
             $table->timestamps();
         });
