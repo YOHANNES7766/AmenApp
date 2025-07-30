@@ -48,3 +48,4 @@ app.*.map.json
 /build/
 /android/.gradle/
 /.dart_tool/
+/android/app/.cxx/
