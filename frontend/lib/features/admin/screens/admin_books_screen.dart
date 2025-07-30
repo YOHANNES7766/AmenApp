@@ -31,7 +31,7 @@ class Book {
 class AdminBooksScreen extends StatefulWidget {
   final List<Book>? books;
   AdminBooksScreen({Key? key, this.books}) : super(key: key) {
-    print('AdminBooksScreen constructor called');
+    debugPrint('AdminBooksScreen constructor called');
   }
 
   @override
@@ -60,16 +60,12 @@ class _AdminBooksScreenState extends State<AdminBooksScreen> {
     }
     // Pending Approval section: treat both approved: 0 and approved: false as pending
     if (_selectedCategoryIndex == 1) {
-      filtered = filtered
-          .where((book) => book.isApproved == false || book.isApproved == 0)
-          .toList();
+      filtered = filtered.where((book) => book.isApproved == false).toList();
     } else if (_selectedCategoryIndex == 2) {
       // Categories (show all for now)
     }
     if (_showApprovedOnly) {
-      filtered = filtered
-          .where((book) => book.isApproved == true || book.isApproved == 1)
-          .toList();
+      filtered = filtered.where((book) => book.isApproved == true).toList();
     }
     return filtered;
   }
@@ -90,7 +86,7 @@ class _AdminBooksScreenState extends State<AdminBooksScreen> {
   @override
   void initState() {
     super.initState();
-    print('AdminBooksScreen initState called');
+    debugPrint('AdminBooksScreen initState called');
     if (widget.books != null) {
       _books = widget.books!;
       _isLoadingBooks = false;
@@ -177,9 +173,11 @@ class _AdminBooksScreenState extends State<AdminBooksScreen> {
       }
     } catch (e) {
       debugPrint('Error approving book: \\${e.toString()}');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error approving book: \\${e.toString()}')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error approving book: \\${e.toString()}')),
+        );
+      }
     }
   }
 
@@ -192,9 +190,11 @@ class _AdminBooksScreenState extends State<AdminBooksScreen> {
         ? book.imageUrl
         : null; // Replace with book.pdfUrl/epubUrl from backend
     if (url == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Download URL not available.')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Download URL not available.')),
+        );
+      }
       return;
     }
     try {
@@ -227,9 +227,11 @@ class _AdminBooksScreenState extends State<AdminBooksScreen> {
       setState(() {
         _downloadProgress.remove(book.id.toString());
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Download failed: \\${e.toString()}')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Download failed: \\${e.toString()}')),
+        );
+      }
     }
   }
 
@@ -262,9 +264,11 @@ class _AdminBooksScreenState extends State<AdminBooksScreen> {
       debugPrint(
           'Picked file: \\${result.files.first.name} (\\${result.files.first.path})');
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No file selected.')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No file selected.')),
+        );
+      }
     }
   }
 
@@ -313,13 +317,17 @@ class _AdminBooksScreenState extends State<AdminBooksScreen> {
         });
         await _fetchBooks(); // Always refresh after upload
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Upload failed: \\${response.data}')));
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Upload failed: \\${response.data}')));
+        }
       }
     } catch (e) {
       debugPrint('Upload error: \\${e.toString()}');
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Error: \\${e.toString()}')));
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Error: \\${e.toString()}')));
+      }
     }
     setState(() => _isUploading = false);
   }
@@ -423,20 +431,27 @@ class _AdminBooksScreenState extends State<AdminBooksScreen> {
       final response = await dio
           .delete('https://your-production-domain.com/api/books/$bookId');
       if (response.statusCode == 200) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Book declined and deleted!')),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Book declined and deleted!')),
+          );
+        }
         await _fetchBooks();
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to decline book: \\${response.data}')),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+                content: Text('Failed to decline book: \\${response.data}')),
+          );
+        }
       }
     } catch (e) {
       debugPrint('Error declining book: \\${e.toString()}');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error declining book: \\${e.toString()}')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error declining book: \\${e.toString()}')),
+        );
+      }
     }
   }
 
