@@ -5,8 +5,8 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart'; // Added for ScaffoldMessenger
 
-// For real device on same WiFi as your computer, use your computer's LAN IP:
-const String backendBaseUrl = 'https://your-production-domain.com';
+// For Railway production deployment:
+const String backendBaseUrl = 'https://amenapp-production.up.railway.app';
 
 // For Android emulator use:
 //const String backendBaseUrl = 'http://10.0.2.2:8001';
