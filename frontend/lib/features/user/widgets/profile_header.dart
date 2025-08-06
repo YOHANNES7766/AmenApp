@@ -16,21 +16,7 @@ class ProfileHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Helper function to get full image URL
-    String getFullImageUrl(String? imagePath) {
-      if (imagePath == null || imagePath.isEmpty) {
-        return 'assets/images/profiles/default_profile.png';
-      }
-      if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
-        return imagePath;
-      }
-      if (imagePath.startsWith('/')) {
-        return '$backendBaseUrl$imagePath';
-      }
-      return imagePath;
-    }
-
-    final fullImageUrl = getFullImageUrl(userProfile?['profile_picture']);
+    final imageProvider = AuthService.getProfileImageProvider(userProfile?['profile_picture']);
     return Container(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -42,11 +28,9 @@ class ProfileHeader extends StatelessWidget {
                 CircleAvatar(
                   radius: 40,
                   backgroundColor: Colors.grey[200],
-                  backgroundImage: fullImageUrl != null
-                      ? NetworkImage(fullImageUrl)
-                      : AssetImage(defaultProfileImage) as ImageProvider,
+                  backgroundImage: imageProvider,
                   onBackgroundImageError: (_, __) {},
-                  child: fullImageUrl == null
+                  child: imageProvider == null
                       ? const Icon(
                           Icons.person,
                           color: Colors.grey,

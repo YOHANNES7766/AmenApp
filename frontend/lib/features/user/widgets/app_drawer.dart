@@ -56,21 +56,9 @@ class _AppDrawerState extends State<AppDrawer> {
     final themeService = Provider.of<ThemeService>(context);
     final localizations = AppLocalizations.of(context);
 
-    // Helper function to get full image URL
-    String getFullImageUrl(String? imagePath) {
-      if (imagePath == null || imagePath.isEmpty) {
-        return 'assets/images/profiles/default_profile.png';
-      }
-      if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
-        return imagePath;
-      }
-      if (imagePath.startsWith('/')) {
-        return '$backendBaseUrl$imagePath';
-      }
-      return imagePath;
-    }
+    // Remove the local getFullImageUrl function
 
-    final fullImageUrl = getFullImageUrl(_userProfile?['profile_picture']);
+    final imageProvider = AuthService.getProfileImageProvider(_userProfile?['profile_picture']);
 
     return Drawer(
       child: Container(
@@ -84,15 +72,16 @@ class _AppDrawerState extends State<AppDrawer> {
               child: Row(
                 children: [
                   GestureDetector(
-                    onTap: () {
+                    onTap: () async {
                       // Navigate to profile screen for image upload
-                      Navigator.push(
+                      await Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) =>
-                              const ProfileScreen(isTab: false),
+                          builder: (context) => const ProfileScreen(isTab: false),
                         ),
                       );
+                      // Refresh profile after returning
+                      _loadUserProfile();
                     },
                     child: Stack(
                       children: [
@@ -100,10 +89,9 @@ class _AppDrawerState extends State<AppDrawer> {
                           radius: 40,
                           backgroundColor:
                               theme.colorScheme.primary.withOpacity(0.1),
-                          backgroundImage: fullImageUrl != null
-                              ? NetworkImage(fullImageUrl)
-                              : null,
-                          child: fullImageUrl == null
+                          backgroundImage: imageProvider,
+                          child: _userProfile?['profile_picture'] == null ||
+                                  _userProfile?['profile_picture'].isEmpty
                               ? Icon(
                                   Icons.person,
                                   size: 48,
