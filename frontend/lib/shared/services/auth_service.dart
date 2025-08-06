@@ -584,6 +584,15 @@ class AuthService extends ChangeNotifier {
 
   /// Get the appropriate ImageProvider for a profile image
   static ImageProvider getProfileImageProvider(String? imagePath) {
+    if (imagePath == null || imagePath.isEmpty) {
+      return const AssetImage('assets/images/profiles/default_profile.png');
+    }
+    
+    // Handle base64 images
+    if (imagePath.startsWith('data:image/')) {
+      return MemoryImage(base64Decode(imagePath.split(',')[1]));
+    }
+    
     final imageUrl = getProfileImageUrl(imagePath);
     
     if (imageUrl != null) {

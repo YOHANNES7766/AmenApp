@@ -116,19 +116,57 @@ class UserProfileController extends Controller
                 throw new \Exception('Failed to store the uploaded file');
             }
 
-            // Update user's profile picture
-            $user->update(['profile_picture' => $imageUrl]);
-
-            \Log::info('Profile picture uploaded successfully', [
+            // Check if the file is accessible via web
+            $publicPath = public_path('storage/' . $path);
+            $fileExists = file_exists($publicPath);
+            
+            \Log::info('Profile picture upload details', [
                 'user_id' => $user->id,
                 'image_url' => $imageUrl,
                 'path' => $path,
-                'file_exists' => Storage::disk('public')->exists($path)
+                'file_exists' => Storage::disk('public')->exists($path),
+                'public_path' => $publicPath,
+                'public_file_exists' => $fileExists,
+                'storage_link_exists' => is_link(public_path('storage')),
+                'app_url' => config('app.url'),
+                'filesystem_url' => config('filesystems.disks.public.url')
             ]);
+
+            // If storage link doesn't exist or file isn't accessible, use base64 fallback
+            if (!is_link(public_path('storage')) || !$fileExists) {
+                \Log::warning('Storage link not working, using base64 fallback');
+                
+                // Convert image to base64
+                $imageData = base64_encode(file_get_contents($request->file('profile_picture')->getRealPath()));
+                $mimeType = $request->file('profile_picture')->getMimeType();
+                $base64Url = "data:$mimeType;base64,$imageData";
+                
+                // Update user's profile picture with base64 data
+                $user->update(['profile_picture' => $base64Url]);
+                
+                return response()->json([
+                    'message' => 'Profile picture uploaded successfully (base64)',
+                    'image_url' => $base64Url,
+                    'debug_info' => [
+                        'method' => 'base64',
+                        'file_exists' => $fileExists,
+                        'storage_link_exists' => is_link(public_path('storage'))
+                    ]
+                ]);
+            }
+
+            // Update user's profile picture
+            $user->update(['profile_picture' => $imageUrl]);
 
             return response()->json([
                 'message' => 'Profile picture uploaded successfully',
-                'image_url' => $imageUrl
+                'image_url' => $imageUrl,
+                'debug_info' => [
+                    'method' => 'storage',
+                    'file_exists' => $fileExists,
+                    'storage_link_exists' => is_link(public_path('storage')),
+                    'public_path' => $publicPath
+                ]
             ]);
         } catch (\Illuminate\Validation\ValidationException $e) {
             \Log::error('Profile picture validation failed', ['errors' => $e->errors()]);
