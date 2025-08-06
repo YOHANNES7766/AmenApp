@@ -62,8 +62,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     try {
       final pickedFile = await _imagePicker.pickImage(
         source: ImageSource.gallery,
-        imageQuality: 80,
-        maxWidth: 800,
+        imageQuality: 60, // Lower quality for smaller size
+        maxWidth: 300,    // Smaller width for profile
       );
 
       if (pickedFile != null) {
