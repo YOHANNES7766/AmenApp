@@ -482,30 +482,36 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildProfileImage(String? imagePath) {
-    final imageUrl = auth.AuthService.getProfileImageUrl(imagePath);
-    final hasImage = imageUrl != null && !_imageLoadError;
-    
-    debugPrint('Building profile image:');
-    debugPrint('  Original path: $imagePath');
-    debugPrint('  Processed URL: $imageUrl');
-    debugPrint('  Has image: $hasImage');
-    debugPrint('  Image load error: $_imageLoadError');
-    
-    return CircleAvatar(
-      radius: 48,
-      backgroundColor: Colors.grey[200],
-      backgroundImage: hasImage 
-          ? NetworkImage(imageUrl!)
-          : const AssetImage('assets/images/profiles/default_profile.png') as ImageProvider,
-      onBackgroundImageError: hasImage ? (exception, stackTrace) {
-        debugPrint('Failed to load profile image: $exception');
-        setState(() {
-          _imageLoadError = true;
-        });
-      } : null,
-      child: !hasImage ? const Icon(Icons.person, size: 48, color: Colors.grey) : null,
-    );
-  }
+  final imageProvider = auth.AuthService.getProfileImageProvider(imagePath);
+  final hasImage = imageProvider != null && !_imageLoadError;
+
+  debugPrint('Building profile image:');
+  debugPrint('  Original path: $imagePath');
+  debugPrint('  Using imageProvider: ${imageProvider.runtimeType}');
+  debugPrint('  Has image: $hasImage');
+  debugPrint('  Image load error: $_imageLoadError');
+
+  return CircleAvatar(
+    radius: 48,
+    backgroundColor: Colors.grey[200],
+    backgroundImage: hasImage ? imageProvider : null,
+    onBackgroundImageError: hasImage
+        ? (exception, stackTrace) {
+            debugPrint('Failed to load profile image: $exception');
+            setState(() {
+              _imageLoadError = true;
+            });
+          }
+        : null,
+    child: !hasImage
+        ? const Icon(
+            Icons.person,
+            size: 48,
+            color: Colors.grey,
+          )
+        : null,
+  );
+}
 
   Widget _buildInfoTile(String label, String value) {
     return ListTile(
