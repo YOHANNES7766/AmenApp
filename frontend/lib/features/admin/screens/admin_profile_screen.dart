@@ -119,36 +119,15 @@ class _AdminProfileContentState extends State<AdminProfileContent> {
                       children: [
                         Builder(
                           builder: (context) {
-                            ImageProvider profileImageProvider;
-                            if (_profileImageUrl != null &&
-                                _profileImageUrl!.isNotEmpty) {
-                              if (_profileImageUrl!.startsWith('http')) {
-                                profileImageProvider =
-                                    NetworkImage(_profileImageUrl!);
-                              } else if (_profileImageUrl!
-                                  .startsWith('/storage/')) {
-                                profileImageProvider = NetworkImage(
-                                    backendBaseUrl + _profileImageUrl!);
-                              } else if (_profileImageUrl!
-                                  .startsWith('assets/')) {
-                                profileImageProvider =
-                                    AssetImage(_profileImageUrl!);
-                              } else {
-                                profileImageProvider = const AssetImage(
-                                    'assets/images/profiles/user1.png.jpg');
-                              }
-                            } else {
-                              profileImageProvider = const AssetImage(
-                                  'assets/images/profiles/user1.png.jpg');
-                            }
+                            final imageProvider = AuthService.getProfileImageProvider(_profileImageUrl);
+                            
                             return CircleAvatar(
                               radius: 40,
                               backgroundColor: Colors.white,
-                              backgroundImage: profileImageProvider,
+                              backgroundImage: imageProvider,
                               child: _isUploading
                                   ? const CircularProgressIndicator()
-                                  : (_profileImageUrl == null ||
-                                          _profileImageUrl!.isEmpty)
+                                  : (_profileImageUrl == null || _profileImageUrl!.isEmpty)
                                       ? const Icon(
                                           Icons.admin_panel_settings,
                                           size: 40,

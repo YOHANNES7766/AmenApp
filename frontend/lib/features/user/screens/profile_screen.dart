@@ -482,12 +482,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildProfileImage(String? imagePath) {
-    final hasImage = imagePath != null && imagePath.isNotEmpty && !_imageLoadError;
+    final imageUrl = auth.AuthService.getProfileImageUrl(imagePath);
+    final hasImage = imageUrl != null && !_imageLoadError;
+    
+    debugPrint('Building profile image:');
+    debugPrint('  Original path: $imagePath');
+    debugPrint('  Processed URL: $imageUrl');
+    debugPrint('  Has image: $hasImage');
+    debugPrint('  Image load error: $_imageLoadError');
     
     return CircleAvatar(
       radius: 48,
       backgroundColor: Colors.grey[200],
-      backgroundImage: hasImage ? NetworkImage(_getFullImageUrl(imagePath)) : null,
+      backgroundImage: hasImage 
+          ? NetworkImage(imageUrl!)
+          : const AssetImage('assets/images/profiles/default_profile.png') as ImageProvider,
       onBackgroundImageError: hasImage ? (exception, stackTrace) {
         debugPrint('Failed to load profile image: $exception');
         setState(() {
@@ -572,44 +581,5 @@ class _ProfileScreenState extends State<ProfileScreen> {
       trailing: const Icon(Icons.chevron_right),
       onTap: onTap,
     );
-  }
-
-  String _getFullImageUrl(String? imagePath) {
-    if (imagePath == null || imagePath.isEmpty) {
-      debugPrint('Profile image path is null or empty, using default');
-      return 'assets/images/profiles/default_profile.png';
-    }
-    
-    // If it's already a full URL, return as is
-    if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
-      debugPrint('Profile image is already a full URL: $imagePath');
-      return imagePath;
-    }
-    
-    // If it starts with /storage/, construct the full URL
-    if (imagePath.startsWith('/storage/')) {
-      final fullUrl = '${auth.backendBaseUrl}$imagePath';
-      debugPrint('Constructed full URL from /storage/ path: $fullUrl');
-      return fullUrl;
-    }
-    
-    // If it starts with /, construct the full URL
-    if (imagePath.startsWith('/')) {
-      final fullUrl = '${auth.backendBaseUrl}$imagePath';
-      debugPrint('Constructed full URL from / path: $fullUrl');
-      return fullUrl;
-    }
-    
-    // If it's just a filename, assume it's in the profile-pictures directory
-    if (!imagePath.contains('/')) {
-      final fullUrl = '${auth.backendBaseUrl}/storage/profile-pictures/$imagePath';
-      debugPrint('Constructed full URL from filename: $fullUrl');
-      return fullUrl;
-    }
-    
-    // If it's a relative path, construct the full URL
-    final fullUrl = '${auth.backendBaseUrl}/storage/$imagePath';
-    debugPrint('Constructed full URL from relative path: $fullUrl');
-    return fullUrl;
   }
 }

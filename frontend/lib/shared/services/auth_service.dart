@@ -551,4 +551,45 @@ class AuthService extends ChangeNotifier {
       return false;
     }
   }
+
+  /// Get the full URL for a profile image
+  static String? getProfileImageUrl(String? imagePath) {
+    if (imagePath == null || imagePath.isEmpty) {
+      return null; // Use default asset image
+    }
+    
+    // If it's already a full URL, return as is
+    if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+      return imagePath;
+    }
+    
+    // If it starts with /storage/, construct the full URL
+    if (imagePath.startsWith('/storage/')) {
+      return '$backendBaseUrl$imagePath';
+    }
+    
+    // If it starts with /, construct the full URL
+    if (imagePath.startsWith('/')) {
+      return '$backendBaseUrl$imagePath';
+    }
+    
+    // If it's just a filename, assume it's in the profile-pictures directory
+    if (!imagePath.contains('/')) {
+      return '$backendBaseUrl/storage/profile-pictures/$imagePath';
+    }
+    
+    // If it's a relative path, construct the full URL
+    return '$backendBaseUrl/storage/$imagePath';
+  }
+
+  /// Get the appropriate ImageProvider for a profile image
+  static ImageProvider getProfileImageProvider(String? imagePath) {
+    final imageUrl = getProfileImageUrl(imagePath);
+    
+    if (imageUrl != null) {
+      return NetworkImage(imageUrl);
+    } else {
+      return const AssetImage('assets/images/profiles/default_profile.png');
+    }
+  }
 }

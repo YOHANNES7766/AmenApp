@@ -19,6 +19,12 @@ class UserProfileController extends Controller
     {
         $user = Auth::user();
         
+        // Set default profile picture if none exists
+        $profilePicture = $user->profile_picture;
+        if (empty($profilePicture)) {
+            $profilePicture = null; // Let frontend handle default
+        }
+        
         return response()->json([
             'user' => [
                 'id' => $user->id,
@@ -28,7 +34,7 @@ class UserProfileController extends Controller
                 'campus' => $user->campus,
                 'department' => $user->department,
                 'role' => $user->role,
-                'profile_picture' => $user->profile_picture,
+                'profile_picture' => $profilePicture,
                 'email_verified_at' => $user->email_verified_at,
                 'created_at' => $user->created_at,
                 'updated_at' => $user->updated_at,
