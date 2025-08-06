@@ -100,20 +100,41 @@ class UserProfileController extends Controller
             $path = $request->file('profile_picture')->store('profile-pictures', 'public');
             $imageUrl = Storage::url($path);
 
+            // Ensure the URL is absolute and uses the correct domain
+            if (!str_starts_with($imageUrl, 'http')) {
+                $imageUrl = url($imageUrl);
+            }
+
+            // Verify the file was actually stored
+            if (!Storage::disk('public')->exists($path)) {
+                throw new \Exception('Failed to store the uploaded file');
+            }
+
             // Update user's profile picture
             $user->update(['profile_picture' => $imageUrl]);
+
+            \Log::info('Profile picture uploaded successfully', [
+                'user_id' => $user->id,
+                'image_url' => $imageUrl,
+                'path' => $path,
+                'file_exists' => Storage::disk('public')->exists($path)
+            ]);
 
             return response()->json([
                 'message' => 'Profile picture uploaded successfully',
                 'image_url' => $imageUrl
             ]);
         } catch (\Illuminate\Validation\ValidationException $e) {
+            \Log::error('Profile picture validation failed', ['errors' => $e->errors()]);
             return response()->json([
                 'message' => 'Validation failed',
                 'errors' => $e->errors()
             ], 422);
         } catch (\Exception $e) {
-            \Log::error('Profile picture upload failed: ' . $e->getMessage());
+            \Log::error('Profile picture upload failed: ' . $e->getMessage(), [
+                'user_id' => Auth::id(),
+                'file' => $request->file('profile_picture')?->getClientOriginalName()
+            ]);
             return response()->json([
                 'message' => 'Failed to upload profile picture: ' . $e->getMessage()
             ], 500);

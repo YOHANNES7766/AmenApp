@@ -25,6 +25,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Map<String, dynamic>? _userProfile;
   bool _isLoading = true;
   String? _error;
+  bool _imageLoadError = false;
   final _imagePicker = ImagePicker();
 
   @override
@@ -44,6 +45,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _userProfile = profile;
         _isLoading = false;
         _error = null;
+        _imageLoadError = false; // Reset image load error
       });
     } catch (e, stackTrace) {
       if (!mounted) return;
@@ -67,19 +69,47 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (pickedFile != null) {
         final authService =
             Provider.of<auth.AuthService>(context, listen: false);
-        var imageUrl =
-            await authService.uploadProfilePicture(File(pickedFile.path));
-        if (imageUrl.startsWith('/storage/')) {
-          imageUrl = '${auth.backendBaseUrl}$imageUrl';
+        
+        // Show loading indicator
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => const Center(child: CircularProgressIndicator()),
+        );
+
+        try {
+          // Upload the profile picture (this also updates the user profile automatically)
+          await authService.uploadProfilePicture(File(pickedFile.path));
+          
+          // Reload the profile to get updated data
+          await _loadUserProfile();
+          
+          if (mounted) {
+            Navigator.pop(context); // Close loading dialog
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Profile picture updated successfully!'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
+        } catch (e) {
+          if (mounted) {
+            Navigator.pop(context); // Close loading dialog
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Failed to upload image: $e'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
         }
-        await authService.updateProfilePicture(imageUrl);
-        await _loadUserProfile();
       }
     } catch (e) {
       debugPrint('Error selecting image: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to upload image: $e')),
+          SnackBar(content: Text('Failed to pick image: $e')),
         );
       }
     }
@@ -173,13 +203,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     child: Stack(
                       alignment: Alignment.bottomRight,
                       children: [
-                        CircleAvatar(
-                          radius: 48,
-                          backgroundColor: Colors.grey[200],
-                          backgroundImage: NetworkImage(
-                            _getFullImageUrl(_userProfile!['profile_picture']),
-                          ),
-                        ),
+                        _buildProfileImage(_userProfile!['profile_picture']),
                         Positioned(
                           bottom: 4,
                           right: 4,
@@ -457,6 +481,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  Widget _buildProfileImage(String? imagePath) {
+    return CircleAvatar(
+      radius: 48,
+      backgroundColor: Colors.grey[200],
+      backgroundImage: (imagePath != null && imagePath.isNotEmpty && !_imageLoadError)
+          ? NetworkImage(_getFullImageUrl(imagePath))
+          : null,
+      onBackgroundImageError: (exception, stackTrace) {
+        debugPrint('Failed to load profile image: $exception');
+        setState(() {
+          _imageLoadError = true;
+        });
+      },
+      child: (imagePath == null || imagePath.isEmpty || _imageLoadError)
+          ? const Icon(Icons.person, size: 48, color: Colors.grey)
+          : null,
+    );
+  }
+
   Widget _buildInfoTile(String label, String value) {
     return ListTile(
       title: Text(
@@ -535,14 +578,40 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   String _getFullImageUrl(String? imagePath) {
     if (imagePath == null || imagePath.isEmpty) {
+      debugPrint('Profile image path is null or empty, using default');
       return 'assets/images/profiles/default_profile.png';
     }
+    
+    // If it's already a full URL, return as is
     if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+      debugPrint('Profile image is already a full URL: $imagePath');
       return imagePath;
     }
-    if (imagePath.startsWith('/')) {
-      return '${auth.backendBaseUrl}$imagePath';
+    
+    // If it starts with /storage/, construct the full URL
+    if (imagePath.startsWith('/storage/')) {
+      final fullUrl = '${auth.backendBaseUrl}$imagePath';
+      debugPrint('Constructed full URL from /storage/ path: $fullUrl');
+      return fullUrl;
     }
-    return imagePath;
+    
+    // If it starts with /, construct the full URL
+    if (imagePath.startsWith('/')) {
+      final fullUrl = '${auth.backendBaseUrl}$imagePath';
+      debugPrint('Constructed full URL from / path: $fullUrl');
+      return fullUrl;
+    }
+    
+    // If it's just a filename, assume it's in the profile-pictures directory
+    if (!imagePath.contains('/')) {
+      final fullUrl = '${auth.backendBaseUrl}/storage/profile-pictures/$imagePath';
+      debugPrint('Constructed full URL from filename: $fullUrl');
+      return fullUrl;
+    }
+    
+    // If it's a relative path, construct the full URL
+    final fullUrl = '${auth.backendBaseUrl}/storage/$imagePath';
+    debugPrint('Constructed full URL from relative path: $fullUrl');
+    return fullUrl;
   }
 }
