@@ -482,21 +482,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildProfileImage(String? imagePath) {
+    final hasImage = imagePath != null && imagePath.isNotEmpty && !_imageLoadError;
+    
     return CircleAvatar(
       radius: 48,
       backgroundColor: Colors.grey[200],
-      backgroundImage: (imagePath != null && imagePath.isNotEmpty && !_imageLoadError)
-          ? NetworkImage(_getFullImageUrl(imagePath))
-          : null,
-      onBackgroundImageError: (exception, stackTrace) {
+      backgroundImage: hasImage ? NetworkImage(_getFullImageUrl(imagePath)) : null,
+      onBackgroundImageError: hasImage ? (exception, stackTrace) {
         debugPrint('Failed to load profile image: $exception');
         setState(() {
           _imageLoadError = true;
         });
-      },
-      child: (imagePath == null || imagePath.isEmpty || _imageLoadError)
-          ? const Icon(Icons.person, size: 48, color: Colors.grey)
-          : null,
+      } : null,
+      child: !hasImage ? const Icon(Icons.person, size: 48, color: Colors.grey) : null,
     );
   }
 
