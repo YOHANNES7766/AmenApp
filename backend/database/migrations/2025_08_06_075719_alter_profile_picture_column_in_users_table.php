@@ -11,8 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('books', function (Blueprint $table) {
-            $table->string('cover_url')->nullable();
+        Schema::table('users', function (Blueprint $table) {
+            $table->longText('profile_picture')->nullable()->change();
         });
     }
 
@@ -21,8 +21,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('books', function (Blueprint $table) {
-            $table->dropColumn('cover_url');
+        Schema::table('users', function (Blueprint $table) {
+            $table->string('profile_picture')->nullable()->change();
         });
     }
 };
