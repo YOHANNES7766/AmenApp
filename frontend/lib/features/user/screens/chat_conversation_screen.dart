@@ -1,3 +1,4 @@
+// chat_conversation_screen.dart
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -45,8 +46,7 @@ class ChatConversationScreen extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  State<ChatConversationScreen> createState() =>
-      _ChatConversationScreenState();
+  State<ChatConversationScreen> createState() => _ChatConversationScreenState();
 }
 
 class _ChatConversationScreenState extends State<ChatConversationScreen> {
@@ -54,6 +54,7 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
   final List<Message> _messages = [];
   final ScrollController _scrollController = ScrollController();
   bool _isLoading = false;
+  bool _isSending = false;
   String? _error;
   late PusherChannelsFlutter _pusher;
   late AuthService _authService;
@@ -67,20 +68,24 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
 
   Future<void> _initChat() async {
     setState(() => _isLoading = true);
-    await _fetchMessages();
-    await _initPusher();
+
+    try {
+      await Future.wait([
+        _fetchMessages(),
+        _initPusher(),
+      ]);
+    } catch (e) {
+      setState(() => _error = 'Initialization error: $e');
+    }
+
     if (mounted) setState(() => _isLoading = false);
   }
 
   Future<void> _fetchMessages() async {
-    if (widget.conversationId == 0) {
-      setState(() => _messages.clear());
-      return;
-    }
+    if (widget.conversationId == 0) return;
 
     try {
-      final url = Uri.parse(
-          '$backendBaseUrl/api/chat/messages/${widget.conversationId}');
+      final url = Uri.parse('$backendBaseUrl/api/chat/messages/${widget.conversationId}');
       final response = await http.get(url, headers: {
         'Authorization': 'Bearer ${_authService.accessToken}',
         'Accept': 'application/json',
@@ -90,8 +95,7 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
         final List<dynamic> data = jsonDecode(response.body);
         setState(() {
           _messages.clear();
-          _messages.addAll(data.map((json) =>
-              Message.fromJson(json, widget.currentUserId)));
+          _messages.addAll(data.map((json) => Message.fromJson(json, widget.currentUserId)));
         });
         _scrollToBottom();
       } else {
@@ -105,8 +109,8 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
   Future<void> _initPusher() async {
     _pusher = PusherChannelsFlutter();
     await _pusher.init(
-      apiKey: 'YOUR_PUSHER_KEY', // Replace with real key
-      cluster: 'YOUR_PUSHER_CLUSTER', // Replace with real cluster
+      apiKey: 'YOUR_PUSHER_KEY',
+      cluster: 'YOUR_PUSHER_CLUSTER',
       authEndpoint: '$backendBaseUrl/broadcasting/auth',
       onAuthorizer: (channelName, socketId, options) async {
         return {
@@ -119,8 +123,7 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
       onEvent: (event) {
         if (event.eventName == 'App\\Events\\MessageSent') {
           final data = jsonDecode(event.data);
-          final msg =
-              Message.fromJson(data['message'], widget.currentUserId);
+          final msg = Message.fromJson(data['message'], widget.currentUserId);
           setState(() {
             _messages.add(msg);
           });
@@ -128,16 +131,16 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
         }
       },
     );
-    await _pusher.subscribe(
-        channelName: 'private-conversation.${widget.conversationId}');
+    await _pusher.subscribe(channelName: 'private-conversation.${widget.conversationId}');
     await _pusher.connect();
   }
 
   Future<void> _sendMessage() async {
     final messageText = _messageController.text.trim();
     if (messageText.isEmpty) return;
+
     _messageController.clear();
-    setState(() => _isLoading = true);
+    setState(() => _isSending = true);
 
     try {
       final response = await http.post(
@@ -163,22 +166,17 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
         );
         setState(() {
           _messages.add(newMessage);
-          _isLoading = false;
           _error = null;
         });
         _scrollToBottom();
       } else {
-        setState(() {
-          _error = 'Failed to send message.';
-          _isLoading = false;
-        });
+        setState(() => _error = 'Failed to send message.');
       }
     } catch (e) {
-      setState(() {
-        _error = 'Error sending message: $e';
-        _isLoading = false;
-      });
+      setState(() => _error = 'Error sending message: $e');
     }
+
+    setState(() => _isSending = false);
   }
 
   void _scrollToBottom() {
@@ -205,12 +203,8 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
     if (imagePath == null || imagePath.isEmpty) {
       return 'assets/images/profiles/default_profile.png';
     }
-    if (imagePath.startsWith('http') || imagePath.startsWith('https')) {
-      return imagePath;
-    }
-    if (imagePath.startsWith('/storage/')) {
-      return backendBaseUrl + imagePath;
-    }
+    if (imagePath.startsWith('http')) return imagePath;
+    if (imagePath.startsWith('/storage/')) return backendBaseUrl + imagePath;
     return imagePath;
   }
 
@@ -228,12 +222,9 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
             CircleAvatar(
               backgroundImage: widget.userImage.isNotEmpty
                   ? NetworkImage(getFullImageUrl(widget.userImage))
-                  : const AssetImage('assets/images/profiles/default_profile.png')
-                      as ImageProvider,
+                  : const AssetImage('assets/images/profiles/default_profile.png') as ImageProvider,
               radius: 18,
-              child: widget.userImage.isEmpty
-                  ? const Icon(Icons.person, size: 18)
-                  : null,
+              child: widget.userImage.isEmpty ? const Icon(Icons.person, size: 18) : null,
             ),
             const SizedBox(width: 10),
             Text(widget.userName),
@@ -268,21 +259,15 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
                     itemBuilder: (context, index) {
                       final msg = _messages[index];
                       return Align(
-                        alignment: msg.isMe
-                            ? Alignment.centerRight
-                            : Alignment.centerLeft,
+                        alignment: msg.isMe ? Alignment.centerRight : Alignment.centerLeft,
                         child: Container(
                           margin: const EdgeInsets.symmetric(vertical: 4),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 14, vertical: 10),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                           constraints: BoxConstraints(
-                            maxWidth:
-                                MediaQuery.of(context).size.width * 0.7,
+                            maxWidth: MediaQuery.of(context).size.width * 0.7,
                           ),
                           decoration: BoxDecoration(
-                            color: msg.isMe
-                                ? Colors.blue[100]
-                                : Colors.grey[200],
+                            color: msg.isMe ? Colors.blue[100] : Colors.grey[200],
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Text(msg.text),
@@ -307,10 +292,14 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
                   ),
                 ),
                 IconButton(
-                  icon: _isLoading
-                      ? const CircularProgressIndicator()
+                  icon: _isSending
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
                       : const Icon(Icons.send),
-                  onPressed: _isLoading ? null : _sendMessage,
+                  onPressed: _isSending ? null : _sendMessage,
                 )
               ],
             ),

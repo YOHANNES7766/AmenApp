@@ -11,8 +11,7 @@ class ChatScreen extends StatefulWidget {
   State<ChatScreen> createState() => _ChatScreenState();
 }
 
-class _ChatScreenState extends State<ChatScreen>
-    with SingleTickerProviderStateMixin {
+class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
   List<Map<String, dynamic>> _conversations = [];
   List<Map<String, dynamic>> _approvedUsers = [];
@@ -28,25 +27,35 @@ class _ChatScreenState extends State<ChatScreen>
   Future<void> _loadData() async {
     final authService = Provider.of<AuthService>(context, listen: false);
     final currentUserId = authService.currentUserId;
-    final convs = await authService.fetchConversations();
-    final users = await authService.fetchApprovedUsers();
 
-    // Filter out self-conversations
-    final filteredConvs = convs.where((conv) {
-      return conv['user_one_id'] != currentUserId &&
-             conv['user_two_id'] != currentUserId;
-    }).toList();
+    try {
+      final results = await Future.wait([
+        authService.fetchConversations(),
+        authService.fetchApprovedUsers(),
+      ]);
 
-    setState(() {
-      _conversations = filteredConvs;
-      _approvedUsers = users;
-      _isLoading = false;
-    });
+      final convs = results[0];
+      final users = results[1];
+
+      final filteredConvs = convs.where((conv) {
+        return conv['user_one_id'] != currentUserId &&
+               conv['user_two_id'] != currentUserId;
+      }).toList();
+
+      setState(() {
+        _conversations = filteredConvs;
+        _approvedUsers = users;
+        _isLoading = false;
+      });
+    } catch (e) {
+      debugPrint('Error loading chat data: $e');
+      setState(() => _isLoading = false);
+    }
   }
 
   String getFullImageUrl(String? path) {
     if (path == null || path.isEmpty) return 'assets/images/profiles/default_profile.png';
-    if (path.startsWith('http') || path.startsWith('https')) return path;
+    if (path.startsWith('http')) return path;
     if (path.startsWith('/storage/')) return backendBaseUrl + path;
     return path;
   }
