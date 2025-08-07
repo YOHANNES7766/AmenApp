@@ -58,12 +58,17 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
   late int _currentUserId;
   String? _authToken;
 
-  @override
-  void initState() {
-    super.initState();
-    _currentUserId = widget.currentUserId;
+@override
+void initState() {
+  super.initState();
+  _currentUserId = widget.currentUserId;
+
+  // Delay message fetch until screen has rendered
+  WidgetsBinding.instance.addPostFrameCallback((_) {
     _initChat();
-  }
+  });
+}
+
 
   Future<void> _initChat() async {
     setState(() => _isLoading = true);

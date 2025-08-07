@@ -29,14 +29,21 @@ class _ChatScreenState extends State<ChatScreen>
   late Future<List<Map<String, dynamic>>> _conversationsFuture;
   late Future<List<Map<String, dynamic>>> _approvedUsersFuture;
 
-  @override
-  void initState() {
-    super.initState();
+@override
+void initState() {
+  super.initState();
+  _tabController = TabController(length: 2, vsync: this);
+
+  // Delay loading until after screen renders
+  WidgetsBinding.instance.addPostFrameCallback((_) {
     final authService = Provider.of<AuthService>(context, listen: false);
-    _conversationsFuture = authService.fetchConversations();
-    _approvedUsersFuture = authService.fetchApprovedUsers();
-    _tabController = TabController(length: 2, vsync: this);
-  }
+    setState(() {
+      _conversationsFuture = authService.fetchConversations();
+      _approvedUsersFuture = authService.fetchApprovedUsers();
+    });
+  });
+}
+
 
   @override
   void dispose() {
