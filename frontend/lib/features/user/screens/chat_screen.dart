@@ -26,8 +26,9 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  late Future<List<Map<String, dynamic>>> _conversationsFuture;
-  late Future<List<Map<String, dynamic>>> _approvedUsersFuture;
+Future<List<Map<String, dynamic>>> _conversationsFuture = Future.value([]);
+Future<List<Map<String, dynamic>>> _approvedUsersFuture = Future.value([]);
+
 
 @override
 void initState() {
