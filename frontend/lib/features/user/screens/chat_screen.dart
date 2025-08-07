@@ -1,9 +1,20 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:http/http.dart' as http;
 import '../../../shared/services/auth_service.dart';
 import 'chat_conversation_screen.dart';
+
+String getFullImageUrl(String? imagePath) {
+  if (imagePath == null || imagePath.isEmpty) {
+    return 'assets/images/profiles/default_profile.png';
+  }
+  if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+    return imagePath;
+  }
+  if (imagePath.startsWith('/storage/')) {
+    return backendBaseUrl + imagePath;
+  }
+  return imagePath;
+}
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({Key? key}) : super(key: key);
@@ -12,125 +23,247 @@ class ChatScreen extends StatefulWidget {
   State<ChatScreen> createState() => _ChatScreenState();
 }
 
-class _ChatScreenState extends State<ChatScreen> {
-  List<dynamic> conversations = [];
-  bool isLoading = false;
-  String? error;
-
-  late AuthService _authService;
+class _ChatScreenState extends State<ChatScreen>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+  late Future<List<Map<String, dynamic>>> _conversationsFuture;
+  late Future<List<Map<String, dynamic>>> _approvedUsersFuture;
 
   @override
   void initState() {
     super.initState();
-    _authService = Provider.of<AuthService>(context, listen: false);
-    fetchConversations();
+    final authService = Provider.of<AuthService>(context, listen: false);
+    _conversationsFuture = authService.fetchConversations();
+    _approvedUsersFuture = authService.fetchApprovedUsers();
+    _tabController = TabController(length: 2, vsync: this);
   }
 
-  Future<void> fetchConversations() async {
-    setState(() {
-      isLoading = true;
-      error = null;
-    });
-
-    final url = Uri.parse('$backendBaseUrl/api/chat/conversations');
-
-    try {
-      final response = await http.get(
-        url,
-        headers: {
-          'Authorization': 'Bearer ${_authService.accessToken}',
-          'Accept': 'application/json',
-        },
-      );
-
-      if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        setState(() {
-          conversations = data;
-        });
-      } else {
-        throw 'Failed to load conversations.';
-      }
-    } catch (e) {
-      setState(() => error = 'Error loading chats: $e');
-    }
-
-    setState(() => isLoading = false);
-  }
-
-  void _openChat(Map<String, dynamic> convo) {
-    final receiverId = convo['receiver_id'] is int
-        ? convo['receiver_id']
-        : int.tryParse(convo['receiver_id'].toString()) ?? 0;
-
-    final conversationId = convo['id'] is int
-        ? convo['id']
-        : int.tryParse(convo['id'].toString()) ?? 0;
-
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => ChatConversationScreen(
-          userName: convo['receiver_name'] ?? 'Unknown',
-          userImage: convo['receiver_image'] ?? '',
-          conversationId: conversationId,
-          receiverId: receiverId,
-          currentUserId: _authService.currentUserId ?? 0,
-        ),
-      ),
-    );
-  }
-
-  String getFullImageUrl(String? path) {
-    if (path == null || path.isEmpty) {
-      return 'assets/images/profiles/default_profile.png';
-    }
-    if (path.startsWith('http')) return path;
-    if (path.startsWith('/storage/')) return backendBaseUrl + path;
-    return path;
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final currentUserId = authService.currentUserId;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Chats'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: fetchConversations,
-          )
-        ],
+        bottom: TabBar(
+          controller: _tabController,
+          tabs: const [
+            Tab(text: 'Chats'),
+            Tab(text: 'Contacts'),
+          ],
+        ),
       ),
-      body: isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : error != null
-              ? Center(child: Text(error!))
-              : conversations.isEmpty
-                  ? const Center(child: Text('No conversations found.'))
-                  : ListView.builder(
-                      itemCount: conversations.length,
-                      itemBuilder: (context, index) {
-                        final convo = conversations[index];
-                        final name = convo['receiver_name'] ?? 'Unknown';
-                        final image = getFullImageUrl(convo['receiver_image']);
-                        final lastMsg = convo['last_message'] ?? '';
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Stories Bar removed
 
-                        return ListTile(
-                          leading: CircleAvatar(
-                            backgroundImage: image.contains('http')
-                                ? NetworkImage(image)
-                                : AssetImage(image) as ImageProvider,
-                          ),
-                          title: Text(name),
-                          subtitle: Text(
-                            lastMsg,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          onTap: () => _openChat(convo),
-                        );
-                      },
-                    ),
+            // Expanded chat/contacts tabs
+            Expanded(
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  // Chats Tab
+                  FutureBuilder<List<Map<String, dynamic>>>(
+                    future: _conversationsFuture,
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(child: CircularProgressIndicator());
+                      } else if (snapshot.hasError) {
+                        return Center(child: Text('Error: ${snapshot.error}'));
+                      } else if (!snapshot.hasData) {
+                        return const Center(
+                            child: Text('No conversations available.'));
+                      }
+                      final conversations = snapshot.data!
+                          .where((conv) =>
+                              conv['user_one_id'] != currentUserId ||
+                              conv['user_two_id'] != currentUserId)
+                          .toList();
+                      return ListView.builder(
+                        itemCount:
+                            conversations.length + 1, // +1 for Saved Messages
+                        itemBuilder: (context, index) {
+                          if (index == 0) {
+                            return ListTile(
+                              leading: const Icon(Icons.bookmark,
+                                  color: Colors.blue, size: 40),
+                              title: const Text('Saved Messages'),
+                              subtitle: const Text('Your personal notes'),
+                              onTap: () async {
+                                try {
+                                  final data =
+                                      await authService.fetchSavedMessages();
+                                  final conversationId =
+                                      data['conversation_id'];
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          ChatConversationScreen(
+                                        userName: 'Saved Messages',
+                                        userImage: '',
+                                        conversationId: conversationId,
+                                        receiverId: currentUserId!,
+                                        currentUserId: currentUserId,
+                                      ),
+                                    ),
+                                  );
+                                } catch (e) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                        content: Text(
+                                            'Failed to open Saved Messages: $e')),
+                                  );
+                                }
+                              },
+                            );
+                          }
+                          final conv = conversations[index - 1];
+                          final userOne = conv['user_one'];
+                          final userTwo = conv['user_two'];
+                          final isUserOne =
+                              conv['user_one_id'] == currentUserId;
+                          final otherUser = isUserOne ? userTwo : userOne;
+                          final otherUserId = isUserOne
+                              ? conv['user_two_id']
+                              : conv['user_one_id'];
+                          final userName =
+                              otherUser != null && otherUser['name'] != null
+                                  ? otherUser['name']
+                                  : 'User';
+                          final userImage = otherUser != null &&
+                                  otherUser['profile_picture'] != null
+                              ? otherUser['profile_picture']
+                              : '';
+                          final lastMessage = conv['last_message'] != null
+                              ? conv['last_message']['message'] ??
+                                  'No messages yet'
+                              : 'No messages yet';
+                          return ListTile(
+                            leading: CircleAvatar(
+                              backgroundImage: userImage.isNotEmpty
+                                  ? (userImage.startsWith('http') ||
+                                          userImage.startsWith('/storage/')
+                                      ? NetworkImage(getFullImageUrl(userImage))
+                                      : AssetImage(getFullImageUrl(userImage))
+                                          as ImageProvider)
+                                  : const AssetImage(
+                                      'assets/images/profiles/default_profile.png'),
+                              child: userImage.isEmpty
+                                  ? const Icon(Icons.person)
+                                  : null,
+                            ),
+                            title: Text(userName),
+                            subtitle: Text(lastMessage),
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => ChatConversationScreen(
+                                    userName: userName,
+                                    userImage: userImage,
+                                    conversationId: conv['id'],
+                                    receiverId: otherUserId,
+                                    currentUserId: currentUserId!,
+                                  ),
+                                ),
+                              );
+                            },
+                          );
+                        },
+                      );
+                    },
+                  ),
+                  // Contacts Tab
+                  FutureBuilder<List<dynamic>>(
+                    future: Future.wait(
+                        [_approvedUsersFuture, _conversationsFuture]),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(child: CircularProgressIndicator());
+                      } else if (snapshot.hasError) {
+                        return Center(child: Text('Error: ${snapshot.error}'));
+                      } else if (!snapshot.hasData ||
+                          snapshot.data![0].isEmpty) {
+                        return const Center(
+                            child: Text('No approved users available.'));
+                      }
+                      final users = (snapshot.data![0] as List)
+                          .where((user) => user['id'] != currentUserId)
+                          .toList();
+                      final conversations = (snapshot.data![1] as List);
+                      return ListView.builder(
+                        itemCount: users.length,
+                        itemBuilder: (context, index) {
+                          final user = users[index];
+                          final userName = user['name'] ?? 'User';
+                          final userImage = user['profile_picture'] ?? '';
+                          final userId = user['id'];
+                          final existingConv = (conversations.firstWhere(
+                            (conv) =>
+                                (conv['user_one_id'] == currentUserId &&
+                                    conv['user_two_id'] == userId) ||
+                                (conv['user_two_id'] == currentUserId &&
+                                    conv['user_one_id'] == userId),
+                            orElse: () => <String, dynamic>{},
+                          ) as Map<String, dynamic>);
+                          final conversationId = (existingConv.isNotEmpty &&
+                                  existingConv.containsKey('id'))
+                              ? existingConv['id']
+                              : 0;
+                          final lastMessage = (existingConv.isNotEmpty &&
+                                  existingConv['last_message'] != null)
+                              ? (existingConv['last_message']['message'] ??
+                                  'No messages yet')
+                              : (user['email'] ?? 'No messages yet');
+                          return ListTile(
+                            leading: CircleAvatar(
+                              backgroundImage: userImage.isNotEmpty
+                                  ? (userImage.startsWith('http') ||
+                                          userImage.startsWith('/storage/')
+                                      ? NetworkImage(getFullImageUrl(userImage))
+                                      : AssetImage(getFullImageUrl(userImage))
+                                          as ImageProvider)
+                                  : const AssetImage(
+                                      'assets/images/profiles/default_profile.png'),
+                              child: userImage.isEmpty
+                                  ? const Icon(Icons.person)
+                                  : null,
+                            ),
+                            title: Text(userName),
+                            subtitle: Text(lastMessage),
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => ChatConversationScreen(
+                                    userName: userName,
+                                    userImage: userImage,
+                                    conversationId: conversationId,
+                                    receiverId: userId,
+                                    currentUserId: currentUserId!,
+                                  ),
+                                ),
+                              );
+                            },
+                          );
+                        },
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
