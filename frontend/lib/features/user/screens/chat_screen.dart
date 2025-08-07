@@ -62,90 +62,8 @@ class _ChatScreenState extends State<ChatScreen>
       body: SafeArea(
         child: Column(
           children: [
-            // Stories Bar
-            SizedBox(
-              height: 72,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 12), // No vertical padding
-                children: [
-                  // Add Story button
-                  GestureDetector(
-                    onTap: () {
-                      showDialog(
-                        context: context,
-                        builder: (context) => AlertDialog(
-                          title: const Text('Add Story'),
-                          content: const Text('Story upload UI coming soon!'),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(context),
-                              child: const Text('Close'),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        CircleAvatar(
-                          radius: 24,
-                          backgroundColor: Colors.blue[100],
-                          child: const Icon(Icons.add,
-                              size: 24, color: Colors.blue),
-                        ),
-                        const SizedBox(height: 4),
-                        const Text('Your Story',
-                            style: TextStyle(fontSize: 10)),
-                      ],
-                    ),
-                  ),
-                  // Placeholder stories (replace with backend data later)
-                  ...List.generate(
-                      5,
-                      (index) => GestureDetector(
-                            onTap: () {
-                              showDialog(
-                                context: context,
-                                builder: (context) => AlertDialog(
-                                  title: Text('Story ${index + 1}'),
-                                  content:
-                                      const Text('Story viewer coming soon!'),
-                                  actions: [
-                                    TextButton(
-                                      onPressed: () => Navigator.pop(context),
-                                      child: const Text('Close'),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            },
-                            child: Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 8),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  CircleAvatar(
-                                    radius: 24,
-                                    backgroundColor: Colors.purple[100],
-                                    child: Text('${index + 1}',
-                                        style: const TextStyle(
-                                            fontSize: 16,
-                                            color: Colors.purple)),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text('User ${index + 1}',
-                                      style: const TextStyle(fontSize: 10)),
-                                ],
-                              ),
-                            ),
-                          )),
-                ],
-              ),
-            ),
+            // Stories Bar removed
+
             // Expanded chat/contacts tabs
             Expanded(
               child: TabBarView(
@@ -164,7 +82,6 @@ class _ChatScreenState extends State<ChatScreen>
                             child: Text('No conversations available.'));
                       }
                       final conversations = snapshot.data!
-                          // Filter out self-to-self conversations (handled by Saved Messages)
                           .where((conv) =>
                               conv['user_one_id'] != currentUserId ||
                               conv['user_two_id'] != currentUserId)
@@ -174,7 +91,6 @@ class _ChatScreenState extends State<ChatScreen>
                             conversations.length + 1, // +1 for Saved Messages
                         itemBuilder: (context, index) {
                           if (index == 0) {
-                            // Saved Messages entry
                             return ListTile(
                               leading: const Icon(Icons.bookmark,
                                   color: Colors.blue, size: 40),
@@ -210,7 +126,6 @@ class _ChatScreenState extends State<ChatScreen>
                             );
                           }
                           final conv = conversations[index - 1];
-                          // Determine the other user (not the current user)
                           final userOne = conv['user_one'];
                           final userTwo = conv['user_two'];
                           final isUserOne =
@@ -281,7 +196,6 @@ class _ChatScreenState extends State<ChatScreen>
                             child: Text('No approved users available.'));
                       }
                       final users = (snapshot.data![0] as List)
-                          // Filter out the current user
                           .where((user) => user['id'] != currentUserId)
                           .toList();
                       final conversations = (snapshot.data![1] as List);
@@ -292,7 +206,6 @@ class _ChatScreenState extends State<ChatScreen>
                           final userName = user['name'] ?? 'User';
                           final userImage = user['profile_picture'] ?? '';
                           final userId = user['id'];
-                          // Find existing conversation with this user
                           final existingConv = (conversations.firstWhere(
                             (conv) =>
                                 (conv['user_one_id'] == currentUserId &&
