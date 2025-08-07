@@ -12,6 +12,10 @@ import 'joined_events_screen.dart';
 import 'notifications_screen.dart';
 import 'theme_screen.dart';
 import 'attendance_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert'; // For JSON encoding/decoding
+
+
 
 class ProfileScreen extends StatefulWidget {
   final bool isTab;
@@ -34,29 +38,56 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _loadUserProfile();
   }
 
-  Future<void> _loadUserProfile() async {
-    if (!mounted) return;
-    setState(() => _isLoading = true);
-    try {
-      final authService = Provider.of<auth.AuthService>(context, listen: false);
-      final profile = await authService.fetchUserProfile();
-      if (!mounted) return;
-      setState(() {
-        _userProfile = profile;
-        _isLoading = false;
-        _error = null;
-        _imageLoadError = false; // Reset image load error
-      });
-    } catch (e, stackTrace) {
-      if (!mounted) return;
-      debugPrint('Profile loading error: $e');
-      debugPrint('Stack trace: $stackTrace');
-      setState(() {
-        _error = 'Failed to load profile: ${e.toString()}';
-        _isLoading = false;
-      });
-    }
+  Future<void> _saveProfileToCache(Map<String, dynamic> profile) async {
+  final prefs = await SharedPreferences.getInstance();
+  prefs.setString('cached_user_profile', jsonEncode(profile));
+}
+
+Future<Map<String, dynamic>?> _loadProfileFromCache() async {
+  final prefs = await SharedPreferences.getInstance();
+  final cachedData = prefs.getString('cached_user_profile');
+  if (cachedData != null) {
+    return jsonDecode(cachedData);
   }
+  return null;
+}
+
+Future<void> _loadUserProfile() async {
+  if (!mounted) return;
+  setState(() => _isLoading = true);
+
+  // Step 1: Load from cache first
+  final cachedProfile = await _loadProfileFromCache();
+  if (cachedProfile != null && mounted) {
+    setState(() {
+      _userProfile = cachedProfile;
+      _isLoading = false;
+    });
+  }
+
+  // Step 2: Fetch from network and update cache
+  try {
+    final authService = Provider.of<auth.AuthService>(context, listen: false);
+    final profile = await authService.fetchUserProfile();
+    if (!mounted) return;
+    setState(() {
+      _userProfile = profile;
+      _isLoading = false;
+      _error = null;
+      _imageLoadError = false;
+    });
+
+    await _saveProfileToCache(profile); // Save to cache
+  } catch (e, stackTrace) {
+    if (!mounted) return;
+    debugPrint('Profile loading error: $e');
+    debugPrint('Stack trace: $stackTrace');
+    setState(() {
+      _error = 'Failed to load profile: ${e.toString()}';
+      _isLoading = false;
+    });
+  }
+}
 
   Future<void> _handleImageSelection() async {
     try {
