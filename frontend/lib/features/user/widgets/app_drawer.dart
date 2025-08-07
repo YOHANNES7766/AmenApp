@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
+
 import 'package:amen_app/shared/services/auth_service.dart';
 import 'package:amen_app/features/user/screens/profile_screen.dart';
 import 'package:amen_app/features/user/screens/prayer_requests_screen.dart';
@@ -27,27 +30,59 @@ class _AppDrawerState extends State<AppDrawer> {
   @override
   void initState() {
     super.initState();
+    _loadCachedProfile();
     _loadUserProfile();
   }
 
-  Future<void> _loadUserProfile() async {
-    try {
-      final authService = Provider.of<AuthService>(context, listen: false);
-      final profile = await authService.fetchUserProfile();
+  Future<void> _loadCachedProfile() async {
+    final prefs = await SharedPreferences.getInstance();
+    final cachedProfile = prefs.getString('cached_user_profile');
+
+    if (cachedProfile != null) {
+      final decoded = json.decode(cachedProfile);
+      setState(() {
+        _userProfile = decoded;
+        _isLoading = false; // Show cached data while network fetches latest
+      });
+    }
+  }
+Future<void> _loadUserProfile() async {
+  try {
+    final prefs = await SharedPreferences.getInstance();
+
+    // Try to load cached data first
+    final cachedProfile = prefs.getString('cached_user_profile');
+    if (cachedProfile != null) {
+      final cachedData = json.decode(cachedProfile);
+      if (mounted) {
+        setState(() {
+          _userProfile = cachedData;
+          _isLoading = false;
+        });
+      }
+    }
+
+    // Then fetch fresh data from the server
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final profile = await authService.fetchUserProfile();
+
+    if (profile != null) {
+      await prefs.setString('cached_user_profile', json.encode(profile));
       if (mounted) {
         setState(() {
           _userProfile = profile;
           _isLoading = false;
         });
       }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+    }
+  } catch (e) {
+    if (mounted) {
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
+}
 
   @override
   Widget build(BuildContext context) {
@@ -56,8 +91,6 @@ class _AppDrawerState extends State<AppDrawer> {
     final themeService = Provider.of<ThemeService>(context);
     final localizations = AppLocalizations.of(context);
 
-    // Remove the local getFullImageUrl function
-
     final imageProvider = AuthService.getProfileImageProvider(_userProfile?['profile_picture']);
 
     return Drawer(
@@ -65,38 +98,27 @@ class _AppDrawerState extends State<AppDrawer> {
         color: theme.colorScheme.surface,
         child: Column(
           children: [
-            // Profile Section
             Container(
-              padding: const EdgeInsets.only(
-                  top: 50, bottom: 16, left: 16, right: 16),
+              padding: const EdgeInsets.only(top: 50, bottom: 16, left: 16, right: 16),
               child: Row(
                 children: [
                   GestureDetector(
                     onTap: () async {
-                      // Navigate to profile screen for image upload
                       await Navigator.push(
                         context,
-                        MaterialPageRoute(
-                          builder: (context) => const ProfileScreen(isTab: false),
-                        ),
+                        MaterialPageRoute(builder: (context) => const ProfileScreen(isTab: false)),
                       );
-                      // Refresh profile after returning
                       _loadUserProfile();
                     },
                     child: Stack(
                       children: [
                         CircleAvatar(
                           radius: 40,
-                          backgroundColor:
-                              theme.colorScheme.primary.withOpacity(0.1),
+                          backgroundColor: theme.colorScheme.primary.withOpacity(0.1),
                           backgroundImage: imageProvider,
                           child: _userProfile?['profile_picture'] == null ||
                                   _userProfile?['profile_picture'].isEmpty
-                              ? Icon(
-                                  Icons.person,
-                                  size: 48,
-                                  color: theme.colorScheme.primary,
-                                )
+                              ? Icon(Icons.person, size: 48, color: theme.colorScheme.primary)
                               : null,
                         ),
                         Positioned(
@@ -108,11 +130,7 @@ class _AppDrawerState extends State<AppDrawer> {
                               color: theme.colorScheme.primary,
                               shape: BoxShape.circle,
                             ),
-                            child: const Icon(
-                              Icons.camera_alt,
-                              size: 16,
-                              color: Colors.white,
-                            ),
+                            child: const Icon(Icons.camera_alt, size: 16, color: Colors.white),
                           ),
                         ),
                       ],
@@ -137,8 +155,7 @@ class _AppDrawerState extends State<AppDrawer> {
                         Text(
                           _isLoading
                               ? 'Loading...'
-                              : _userProfile?['email']?.toString() ??
-                                  'No email',
+                              : _userProfile?['email']?.toString() ?? 'No email',
                           style: TextStyle(
                             color: theme.colorScheme.onSurface.withOpacity(0.7),
                             fontSize: 14,
@@ -162,9 +179,7 @@ class _AppDrawerState extends State<AppDrawer> {
                     title: localizations.profile,
                     onTap: () => Navigator.push(
                       context,
-                      MaterialPageRoute(
-                        builder: (context) => const ProfileScreen(isTab: false),
-                      ),
+                      MaterialPageRoute(builder: (context) => const ProfileScreen(isTab: false)),
                     ),
                   ),
                   _buildMenuItem(
@@ -181,9 +196,7 @@ class _AppDrawerState extends State<AppDrawer> {
                     title: localizations.settings,
                     onTap: () => Navigator.push(
                       context,
-                      MaterialPageRoute(
-                        builder: (context) => const AppSettingsScreen(),
-                      ),
+                      MaterialPageRoute(builder: (context) => const AppSettingsScreen()),
                     ),
                   ),
                   _buildMenuItem(
@@ -192,9 +205,7 @@ class _AppDrawerState extends State<AppDrawer> {
                     title: localizations.notifications,
                     onTap: () => Navigator.push(
                       context,
-                      MaterialPageRoute(
-                        builder: (context) => const NotificationsScreen(),
-                      ),
+                      MaterialPageRoute(builder: (context) => const NotificationsScreen()),
                     ),
                   ),
                   _buildMenuItem(
@@ -203,9 +214,7 @@ class _AppDrawerState extends State<AppDrawer> {
                     title: localizations.myPrayers,
                     onTap: () => Navigator.push(
                       context,
-                      MaterialPageRoute(
-                        builder: (context) => const PrayerRequestsScreen(),
-                      ),
+                      MaterialPageRoute(builder: (context) => const PrayerRequestsScreen()),
                     ),
                   ),
                   _buildMenuItem(
@@ -214,9 +223,7 @@ class _AppDrawerState extends State<AppDrawer> {
                     title: localizations.completedDevotions,
                     onTap: () => Navigator.push(
                       context,
-                      MaterialPageRoute(
-                        builder: (context) => const CompletedDevotionsScreen(),
-                      ),
+                      MaterialPageRoute(builder: (context) => const CompletedDevotionsScreen()),
                     ),
                   ),
                   _buildMenuItem(
@@ -225,9 +232,7 @@ class _AppDrawerState extends State<AppDrawer> {
                     title: localizations.savedNotes,
                     onTap: () => Navigator.push(
                       context,
-                      MaterialPageRoute(
-                        builder: (context) => const SavedNotesScreen(),
-                      ),
+                      MaterialPageRoute(builder: (context) => const SavedNotesScreen()),
                     ),
                   ),
                   _buildMenuItem(
@@ -236,9 +241,7 @@ class _AppDrawerState extends State<AppDrawer> {
                     title: localizations.joinedEvents,
                     onTap: () => Navigator.push(
                       context,
-                      MaterialPageRoute(
-                        builder: (context) => const JoinedEventsScreen(),
-                      ),
+                      MaterialPageRoute(builder: (context) => const JoinedEventsScreen()),
                     ),
                   ),
                   _buildMenuItem(
@@ -247,9 +250,7 @@ class _AppDrawerState extends State<AppDrawer> {
                     title: localizations.attendance,
                     onTap: () => Navigator.push(
                       context,
-                      MaterialPageRoute(
-                        builder: (context) => const AttendanceScreen(),
-                      ),
+                      MaterialPageRoute(builder: (context) => const AttendanceScreen()),
                     ),
                   ),
                   _buildMenuItem(
@@ -258,29 +259,32 @@ class _AppDrawerState extends State<AppDrawer> {
                     title: localizations.languageSelector,
                     onTap: () => Navigator.push(
                       context,
-                      MaterialPageRoute(
-                        builder: (context) => const LanguageScreen(),
-                      ),
+                      MaterialPageRoute(builder: (context) => const LanguageScreen()),
                     ),
                   ),
-                  _buildDarkModeSwitch(
-                      context, isDark, themeService, localizations),
+                  _buildDarkModeSwitch(context, isDark, themeService, localizations),
                   const Divider(),
-                  _buildMenuItem(
-                    context,
-                    icon: Icons.logout,
-                    title: localizations.logout,
-                    onTap: () {
-                      final authService =
-                          Provider.of<AuthService>(context, listen: false);
-                      authService.logout().then((_) {
-                        Navigator.pushReplacementNamed(context, '/login');
-                      });
-                    },
-                    textColor: theme.colorScheme.error,
-                    iconColor: theme.colorScheme.error,
-                  ),
-                ],
+  _buildMenuItem(
+  context,
+  icon: Icons.logout,
+  title: localizations.logout,
+  onTap: () async {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    
+    // ✅ Clear cached profile from SharedPreferences
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('cached_user_profile');
+
+    // ✅ Logout and navigate
+    await authService.logout();
+    if (context.mounted) {
+      Navigator.pushReplacementNamed(context, '/login');
+    }
+  },
+  textColor: theme.colorScheme.error,
+  iconColor: theme.colorScheme.error,
+),
+            ],
               ),
             ),
           ],
@@ -318,8 +322,12 @@ class _AppDrawerState extends State<AppDrawer> {
     );
   }
 
-  Widget _buildDarkModeSwitch(BuildContext context, bool isDark,
-      ThemeService themeService, AppLocalizations localizations) {
+  Widget _buildDarkModeSwitch(
+    BuildContext context,
+    bool isDark,
+    ThemeService themeService,
+    AppLocalizations localizations,
+  ) {
     final theme = Theme.of(context);
     return ListTile(
       leading: Icon(
