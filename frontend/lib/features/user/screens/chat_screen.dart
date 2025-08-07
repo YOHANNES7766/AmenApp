@@ -1,20 +1,8 @@
+// chat_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../shared/services/auth_service.dart';
 import 'chat_conversation_screen.dart';
-
-String getFullImageUrl(String? imagePath) {
-  if (imagePath == null || imagePath.isEmpty) {
-    return 'assets/images/profiles/default_profile.png';
-  }
-  if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
-    return imagePath;
-  }
-  if (imagePath.startsWith('/storage/')) {
-    return backendBaseUrl + imagePath;
-  }
-  return imagePath;
-}
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({Key? key}) : super(key: key);
@@ -29,30 +17,38 @@ class _ChatScreenState extends State<ChatScreen>
   List<Map<String, dynamic>> _conversations = [];
   List<Map<String, dynamic>> _approvedUsers = [];
   bool _isLoading = true;
-  late int _currentUserId;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadData());
+  }
 
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      final authService = Provider.of<AuthService>(context, listen: false);
-      _currentUserId = authService.currentUserId!;
-      final conversations = await authService.fetchConversations();
-      final approved = await authService.fetchApprovedUsers();
+  Future<void> _loadData() async {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final currentUserId = authService.currentUserId;
+    final convs = await authService.fetchConversations();
+    final users = await authService.fetchApprovedUsers();
 
-      setState(() {
-        _conversations = conversations
-            .where((conv) =>
-                conv['user_one_id'] != _currentUserId &&
-                conv['user_two_id'] != _currentUserId)
-            .toList();
-        _approvedUsers =
-            approved.where((u) => u['id'] != _currentUserId).toList();
-        _isLoading = false;
-      });
+    // Filter out self-conversations
+    final filteredConvs = convs.where((conv) {
+      return conv['user_one_id'] != currentUserId &&
+             conv['user_two_id'] != currentUserId;
+    }).toList();
+
+    setState(() {
+      _conversations = filteredConvs;
+      _approvedUsers = users;
+      _isLoading = false;
     });
+  }
+
+  String getFullImageUrl(String? path) {
+    if (path == null || path.isEmpty) return 'assets/images/profiles/default_profile.png';
+    if (path.startsWith('http') || path.startsWith('https')) return path;
+    if (path.startsWith('/storage/')) return backendBaseUrl + path;
+    return path;
   }
 
   @override
@@ -64,16 +60,14 @@ class _ChatScreenState extends State<ChatScreen>
   @override
   Widget build(BuildContext context) {
     final authService = Provider.of<AuthService>(context, listen: false);
+    final currentUserId = authService.currentUserId;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Chats'),
         bottom: TabBar(
           controller: _tabController,
-          tabs: const [
-            Tab(text: 'Chats'),
-            Tab(text: 'Contacts'),
-          ],
+          tabs: const [Tab(text: 'Chats'), Tab(text: 'Contacts')],
         ),
       ),
       body: _isLoading
@@ -81,72 +75,49 @@ class _ChatScreenState extends State<ChatScreen>
           : TabBarView(
               controller: _tabController,
               children: [
-                // Chats Tab
+                // Chats tab
                 ListView.builder(
                   itemCount: _conversations.length + 1,
                   itemBuilder: (context, index) {
                     if (index == 0) {
                       return ListTile(
-                        leading: const Icon(Icons.bookmark,
-                            color: Colors.blue, size: 40),
+                        leading: const Icon(Icons.bookmark),
                         title: const Text('Saved Messages'),
                         subtitle: const Text('Your personal notes'),
                         onTap: () async {
-                          try {
-                            final data =
-                                await authService.fetchSavedMessages();
-                            final conversationId = data['conversation_id'];
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => ChatConversationScreen(
-                                  userName: 'Saved Messages',
-                                  userImage: '',
-                                  conversationId: conversationId,
-                                  receiverId: _currentUserId,
-                                  currentUserId: _currentUserId,
-                                ),
+                          final saved = await authService.fetchSavedMessages();
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => ChatConversationScreen(
+                                userName: 'Saved Messages',
+                                userImage: '',
+                                conversationId: saved['conversation_id'],
+                                receiverId: currentUserId!,
+                                currentUserId: currentUserId,
                               ),
-                            );
-                          } catch (e) {
-                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                                content: Text(
-                                    'Failed to open Saved Messages: $e')));
-                          }
+                            ),
+                          );
                         },
                       );
                     }
 
                     final conv = _conversations[index - 1];
-                    final isUserOne =
-                        conv['user_one_id'] == _currentUserId;
-                    final otherUser =
-                        isUserOne ? conv['user_two'] : conv['user_one'];
+                    final isUserOne = conv['user_one_id'] == currentUserId;
+                    final otherUser = isUserOne ? conv['user_two'] : conv['user_one'];
                     final otherUserId = isUserOne
                         ? conv['user_two_id']
                         : conv['user_one_id'];
-
-                    if (otherUser == null) return const SizedBox();
-
-                    final userName = otherUser['name'] ?? 'User';
-                    final userImage = otherUser['profile_picture'] ?? '';
-                    final lastMessage = conv['last_message'] != null
-                        ? conv['last_message']['message'] ?? 'No messages yet'
-                        : 'No messages yet';
+                    final userName = otherUser?['name'] ?? 'User';
+                    final userImage = otherUser?['profile_picture'] ?? '';
+                    final lastMessage = conv['last_message']?['message'] ?? 'No messages yet';
 
                     return ListTile(
                       leading: CircleAvatar(
                         backgroundImage: userImage.isNotEmpty
-                            ? (userImage.startsWith('http') ||
-                                    userImage.startsWith('/storage/')
-                                ? NetworkImage(getFullImageUrl(userImage))
-                                : AssetImage(getFullImageUrl(userImage))
-                                    as ImageProvider)
-                            : const AssetImage(
-                                'assets/images/profiles/default_profile.png'),
-                        child: userImage.isEmpty
-                            ? const Icon(Icons.person)
-                            : null,
+                            ? NetworkImage(getFullImageUrl(userImage))
+                            : const AssetImage('assets/images/profiles/default_profile.png')
+                                as ImageProvider,
                       ),
                       title: Text(userName),
                       subtitle: Text(lastMessage),
@@ -154,12 +125,12 @@ class _ChatScreenState extends State<ChatScreen>
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => ChatConversationScreen(
+                            builder: (context) => ChatConversationScreen(
                               userName: userName,
                               userImage: userImage,
                               conversationId: conv['id'],
                               receiverId: otherUserId,
-                              currentUserId: _currentUserId,
+                              currentUserId: currentUserId!,
                             ),
                           ),
                         );
@@ -168,57 +139,45 @@ class _ChatScreenState extends State<ChatScreen>
                   },
                 ),
 
-                // Contacts Tab
+                // Contacts tab
                 ListView.builder(
                   itemCount: _approvedUsers.length,
                   itemBuilder: (context, index) {
                     final user = _approvedUsers[index];
-                    final userName = user['name'] ?? 'User';
-                    final userImage = user['profile_picture'] ?? '';
-                    final userId = user['id'];
+                    if (user['id'] == currentUserId) return const SizedBox.shrink();
 
                     final existingConv = _conversations.firstWhere(
                       (conv) =>
-                          (conv['user_one_id'] == _currentUserId &&
-                              conv['user_two_id'] == userId) ||
-                          (conv['user_two_id'] == _currentUserId &&
-                              conv['user_one_id'] == userId),
-                      orElse: () => {},
+                          (conv['user_one_id'] == currentUserId &&
+                              conv['user_two_id'] == user['id']) ||
+                          (conv['user_two_id'] == currentUserId &&
+                              conv['user_one_id'] == user['id']),
+                      orElse: () => <String, dynamic>{},
                     );
-
-                    final conversationId =
-                        existingConv.isNotEmpty ? existingConv['id'] : 0;
-                    final lastMessage = existingConv['last_message'] != null
-                        ? existingConv['last_message']['message'] ??
-                            'No messages yet'
-                        : user['email'] ?? 'No messages yet';
+                    final convId = existingConv['id'] ?? 0;
+                    final lastMessage = existingConv['last_message']?['message'] ??
+                        user['email'] ??
+                        'No messages yet';
 
                     return ListTile(
                       leading: CircleAvatar(
-                        backgroundImage: userImage.isNotEmpty
-                            ? (userImage.startsWith('http') ||
-                                    userImage.startsWith('/storage/')
-                                ? NetworkImage(getFullImageUrl(userImage))
-                                : AssetImage(getFullImageUrl(userImage))
-                                    as ImageProvider)
-                            : const AssetImage(
-                                'assets/images/profiles/default_profile.png'),
-                        child: userImage.isEmpty
-                            ? const Icon(Icons.person)
-                            : null,
+                        backgroundImage: user['profile_picture'] != null
+                            ? NetworkImage(getFullImageUrl(user['profile_picture']))
+                            : const AssetImage('assets/images/profiles/default_profile.png')
+                                as ImageProvider,
                       ),
-                      title: Text(userName),
+                      title: Text(user['name'] ?? 'User'),
                       subtitle: Text(lastMessage),
                       onTap: () {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => ChatConversationScreen(
-                              userName: userName,
-                              userImage: userImage,
-                              conversationId: conversationId,
-                              receiverId: userId,
-                              currentUserId: _currentUserId,
+                            builder: (context) => ChatConversationScreen(
+                              userName: user['name'] ?? 'User',
+                              userImage: user['profile_picture'] ?? '',
+                              conversationId: convId,
+                              receiverId: user['id'],
+                              currentUserId: currentUserId!,
                             ),
                           ),
                         );
