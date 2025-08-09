@@ -1,9 +1,11 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:pusher_channels_flutter/pusher_channels_flutter.dart';
+
 import '../../../shared/services/auth_service.dart';
 import 'chat_conversation_screen.dart';
-import 'chats_tab.dart'; // Make sure the path is correct
-
+import 'chats_tab.dart';
 
 String getFullImageUrl(String? imagePath) {
   if (imagePath == null || imagePath.isEmpty) {
@@ -25,25 +27,56 @@ class ChatScreen extends StatefulWidget {
   State<ChatScreen> createState() => _ChatScreenState();
 }
 
-class _ChatScreenState extends State<ChatScreen>
-    with SingleTickerProviderStateMixin {
+class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
   late Future<List<Map<String, dynamic>>> _conversationsFuture;
   late Future<List<Map<String, dynamic>>> _approvedUsersFuture;
+  late PusherChannelsFlutter pusher;
+  int? currentUserId;
 
-@override
-void initState() {
-  super.initState();
-  final authService = Provider.of<AuthService>(context, listen: false);
-  final conversationsFuture = authService.fetchConversations();
-  final approvedUsersFuture = authService.fetchApprovedUsers();
+  @override
+  void initState() {
+    super.initState();
+    final authService = Provider.of<AuthService>(context, listen: false);
+    currentUserId = authService.currentUserId;
 
-  _conversationsFuture = conversationsFuture;
-  _approvedUsersFuture = approvedUsersFuture;
+    _conversationsFuture = authService.fetchConversations();
+    _approvedUsersFuture = authService.fetchApprovedUsers();
 
-  _tabController = TabController(length: 2, vsync: this);
-}
+    _tabController = TabController(length: 2, vsync: this);
+    _initPusher();
+  }
 
+  void _refreshConversations() {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    setState(() {
+      _conversationsFuture = authService.fetchConversations();
+    });
+  }
+
+  void _initPusher() async {
+    pusher = PusherChannelsFlutter();
+
+    await pusher.init(
+      apiKey: "4c83807283760dab1b1d",
+      cluster: "mt1",
+      onEvent: (event) {
+        if (event.eventName == 'App\\Events\\MessageSent') {
+          final data = jsonDecode(event.data);
+          final message = data['message'];
+          final senderId = message['sender_id'];
+          final receiverId = message['receiver_id'];
+
+          if (senderId == currentUserId || receiverId == currentUserId) {
+            _refreshConversations();
+          }
+        }
+      },
+    );
+
+    await pusher.subscribe(channelName: 'chat');
+    await pusher.connect();
+  }
 
   @override
   void dispose() {
@@ -54,7 +87,13 @@ void initState() {
   @override
   Widget build(BuildContext context) {
     final authService = Provider.of<AuthService>(context, listen: false);
-    final currentUserId = authService.currentUserId;
+
+    if (currentUserId == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    final int nonNullUserId = currentUserId!;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Chats'),
@@ -69,37 +108,32 @@ void initState() {
       body: SafeArea(
         child: Column(
           children: [
-            // Stories Bar removed
-
-            // Expanded chat/contacts tabs
             Expanded(
               child: TabBarView(
                 controller: _tabController,
                 children: [
-                  // Chats Tab
-         ChatsTab(
-  conversationsFuture: _conversationsFuture,
-  currentUserId: currentUserId!,
-  authService: authService,
-),
-    // Contacts Tab
+                  ChatsTab(
+                    conversationsFuture: _conversationsFuture,
+                    currentUserId: nonNullUserId,
+                    authService: authService,
+                  ),
                   FutureBuilder<List<dynamic>>(
-                    future: Future.wait(
-                        [_approvedUsersFuture, _conversationsFuture]),
+                    future: Future.wait([
+                      _approvedUsersFuture,
+                      _conversationsFuture,
+                    ]),
                     builder: (context, snapshot) {
                       if (snapshot.connectionState == ConnectionState.waiting) {
                         return const Center(child: CircularProgressIndicator());
                       } else if (snapshot.hasError) {
                         return Center(child: Text('Error: ${snapshot.error}'));
-                      } else if (!snapshot.hasData ||
-                          snapshot.data![0].isEmpty) {
-                        return const Center(
-                            child: Text('No approved users available.'));
                       }
-                      final users = (snapshot.data![0] as List)
-                          .where((user) => user['id'] != currentUserId)
-                          .toList();
-                      final conversations = (snapshot.data![1] as List);
+
+                      final approvedUsers = snapshot.data![0] as List;
+                      final conversations = snapshot.data![1] as List;
+
+                      final users = approvedUsers.where((user) => user['id'] != nonNullUserId).toList();
+
                       return ListView.builder(
                         itemCount: users.length,
                         itemBuilder: (context, index) {
@@ -107,36 +141,31 @@ void initState() {
                           final userName = user['name'] ?? 'User';
                           final userImage = user['profile_picture'] ?? '';
                           final userId = user['id'];
-                          final existingConv = (conversations.firstWhere(
+
+                          final existingConv = conversations.firstWhere(
                             (conv) =>
-                                (conv['user_one_id'] == currentUserId &&
-                                    conv['user_two_id'] == userId) ||
-                                (conv['user_two_id'] == currentUserId &&
-                                    conv['user_one_id'] == userId),
-                            orElse: () => <String, dynamic>{},
-                          ) as Map<String, dynamic>);
-                          final conversationId = (existingConv.isNotEmpty &&
-                                  existingConv.containsKey('id'))
+                                (conv['user_one_id'] == nonNullUserId && conv['user_two_id'] == userId) ||
+                                (conv['user_two_id'] == nonNullUserId && conv['user_one_id'] == userId),
+                            orElse: () => {},
+                          ) as Map<String, dynamic>;
+
+                          final conversationId = existingConv.isNotEmpty && existingConv.containsKey('id')
                               ? existingConv['id']
                               : 0;
+
                           final lastMessage = (existingConv.isNotEmpty &&
                                   existingConv['last_message'] != null)
-                              ? (existingConv['last_message']['message'] ??
-                                  'No messages yet')
-                              : (user['email'] ?? 'No messages yet');
+                              ? (existingConv['last_message']['message'] ?? 'No messages yet')
+                              : 'Start a conversation';
+
                           return ListTile(
                             leading: CircleAvatar(
                               backgroundImage: userImage.isNotEmpty
-                                  ? (userImage.startsWith('http') ||
-                                          userImage.startsWith('/storage/')
+                                  ? (userImage.startsWith('http') || userImage.startsWith('/storage/')
                                       ? NetworkImage(getFullImageUrl(userImage))
-                                      : AssetImage(getFullImageUrl(userImage))
-                                          as ImageProvider)
-                                  : const AssetImage(
-                                      'assets/images/profiles/default_profile.png'),
-                              child: userImage.isEmpty
-                                  ? const Icon(Icons.person)
-                                  : null,
+                                      : AssetImage(getFullImageUrl(userImage)) as ImageProvider)
+                                  : const AssetImage('assets/images/profiles/default_profile.png'),
+                              child: userImage.isEmpty ? const Icon(Icons.person) : null,
                             ),
                             title: Text(userName),
                             subtitle: Text(lastMessage),
@@ -149,7 +178,7 @@ void initState() {
                                     userImage: userImage,
                                     conversationId: conversationId,
                                     receiverId: userId,
-                                    currentUserId: currentUserId,
+                                    currentUserId: nonNullUserId,
                                   ),
                                 ),
                               );

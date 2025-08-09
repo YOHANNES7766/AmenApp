@@ -15,38 +15,50 @@ class ChatController extends Controller
     public function getConversations(Request $request)
     {
         $user = $request->user();
+
         $conversations = Conversation::where('user_one_id', $user->id)
             ->orWhere('user_two_id', $user->id)
-            ->with(['userOne', 'userTwo', 'lastMessage'])
+            ->with([
+                'userOne:id,name,profile_picture',
+                'userTwo:id,name,profile_picture',
+                'lastMessage:id,message,conversation_id,sender_id,created_at'
+            ])
             ->orderByDesc('updated_at')
             ->get();
+
         return response()->json($conversations);
     }
 
     // Get all messages for a conversation
     public function getMessages(Request $request, $conversationId)
     {
-        $conversation = Conversation::with(['messages.sender', 'messages.receiver'])
-            ->findOrFail($conversationId);
-        return response()->json($conversation->messages()->orderBy('created_at')->get());
+        $conversation = Conversation::with([
+            'messages' => function ($query) {
+                $query->with('sender:id,name,profile_picture', 'receiver:id,name,profile_picture')
+                      ->orderBy('created_at');
+            }
+        ])->findOrFail($conversationId);
+
+        return response()->json($conversation->messages);
     }
 
-    // Send a message (creates conversation if needed)
+    // Send a message
     public function sendMessage(Request $request)
     {
         $request->validate([
             'receiver_id' => 'required|exists:users,id',
             'message' => 'required|string',
         ]);
+
         $sender = $request->user();
         $receiverId = $request->input('receiver_id');
-        $messageText = $request->input('message');
+        $text = $request->input('message');
 
         // Find or create conversation
-        $conversation = Conversation::where(function ($q) use ($sender, $receiverId) {
-            $q->where('user_one_id', $sender->id)->where('user_two_id', $receiverId);
-        })->orWhere(function ($q) use ($sender, $receiverId) {
-            $q->where('user_one_id', $receiverId)->where('user_two_id', $sender->id);
+        $conversation = Conversation::where(function ($query) use ($sender, $receiverId) {
+            $query->where('user_one_id', $sender->id)->where('user_two_id', $receiverId);
+        })->orWhere(function ($query) use ($sender, $receiverId) {
+            $query->where('user_one_id', $receiverId)->where('user_two_id', $sender->id);
         })->first();
 
         if (!$conversation) {
@@ -56,21 +68,22 @@ class ChatController extends Controller
             ]);
         }
 
-        // Create message
+        // Create the message
         $message = Message::create([
             'sender_id' => $sender->id,
             'receiver_id' => $receiverId,
             'conversation_id' => $conversation->id,
-            'message' => $messageText,
+            'message' => $text,
             'is_read' => false,
         ]);
 
-        // Update last_message_id
+        // Update conversation with latest message
         $conversation->last_message_id = $message->id;
+        $conversation->updated_at = now();
         $conversation->save();
 
-        // Broadcast event for real-time
-        broadcast(new MessageSent($message))->toOthers();
+        // Broadcast message event (Pusher)
+        broadcast(new MessageSent($message->load('sender:id,name,profile_picture')))->toOthers();
 
         return response()->json($message, 201);
     }
@@ -79,40 +92,41 @@ class ChatController extends Controller
     public function markAsRead(Request $request, $messageId)
     {
         $message = Message::findOrFail($messageId);
-        $user = $request->user();
-        if ($message->receiver_id !== $user->id) {
+
+        if ($message->receiver_id !== $request->user()->id) {
             return response()->json(['error' => 'Unauthorized'], 403);
         }
+
         $message->is_read = true;
         $message->save();
+
         return response()->json(['success' => true]);
     }
 
-    // Get all approved users except the authenticated user
+    // Get all approved users (excluding self)
     public function getApprovedUsers(Request $request)
     {
-        $user = $request->user();
         $approvedUsers = User::where('approved', true)
-            ->where('id', '!=', $user->id)
+            ->where('id', '!=', $request->user()->id)
             ->get(['id', 'name', 'email', 'profile_picture', 'role']);
+
         return response()->json($approvedUsers);
     }
 
-    // Get or create the 'Saved Messages' (self-chat) conversation for the authenticated user
+    // Self-chat: Get/create 'Saved Messages' conversation
     public function getSavedMessages(Request $request)
     {
         $user = $request->user();
-        // Find or create a conversation where both user_one_id and user_two_id are the same
-        $conversation = Conversation::firstOrCreate(
-            [
-                'user_one_id' => $user->id,
-                'user_two_id' => $user->id,
-            ]
-        );
-        // Get messages for this conversation
+
+        $conversation = Conversation::firstOrCreate([
+            'user_one_id' => $user->id,
+            'user_two_id' => $user->id,
+        ]);
+
         $messages = Message::where('conversation_id', $conversation->id)
             ->orderBy('created_at')
             ->get();
+
         return response()->json([
             'conversation_id' => $conversation->id,
             'messages' => $messages,
