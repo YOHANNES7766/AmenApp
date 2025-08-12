@@ -122,16 +122,22 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
           }
         };
       },
-      onEvent: (event) {
-        if (event.eventName == 'App\\Events\\MessageSent') {
-          final data = jsonDecode(event.data);
-          final msg = Message.fromJson(data['message'], _currentUserId);
-          setState(() {
-            _messages.add(msg);
-          });
-          _scrollToBottom();
-        }
-      },
+    onEvent: (event) {
+  if (event.eventName == 'App\\Events\\MessageSent') {
+    final data = jsonDecode(event.data);
+    final senderId = data['message']['sender_id'];
+
+    // ❌ Don't add if current user sent it (already added locally)
+    if (senderId == _currentUserId) return;
+
+    final msg = Message.fromJson(data['message'], _currentUserId);
+    setState(() {
+      _messages.add(msg);
+    });
+    _scrollToBottom();
+  }
+},
+
     );
     await _pusher.subscribe(
         channelName: 'private-conversation.${widget.conversationId}');
