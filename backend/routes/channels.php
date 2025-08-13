@@ -1,18 +1,18 @@
 <?php
 
 use Illuminate\Support\Facades\Broadcast;
+use App\Models\Conversation;
 
-/*
-|--------------------------------------------------------------------------
-| Broadcast Channels
-|--------------------------------------------------------------------------
-|
-| Here you may register all of the event broadcasting channels that your
-| application supports. The given channel authorization callbacks are
-| used to check if an authenticated user can listen to the channel.
-|
-*/
+Broadcast::channel('private-conversation.{conversationId}', function ($user, $conversationId) {
+    $conversation = cache()->remember(
+        "conversation:{$conversationId}",
+        now()->addMinutes(1), // more readable than 60
+        fn() => Conversation::find($conversationId)
+    );
 
-Broadcast::channel('conversation.{conversationId}', function ($user, $conversationId) {
-    return true; // 🔒 You can restrict based on user roles or conversation members
+    if (!$conversation) {
+        return false;
+    }
+
+    return in_array($user->id, [$conversation->user_one_id, $conversation->user_two_id]);
 });
