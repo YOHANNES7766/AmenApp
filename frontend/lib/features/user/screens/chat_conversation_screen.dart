@@ -56,7 +56,6 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
   String? _error;
   late PusherChannelsFlutter _pusher;
   late int _currentUserId;
-  String? _authToken;
 
   @override
   void initState() {
@@ -67,36 +66,30 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
 
   Future<void> _initChat() async {
     setState(() => _isLoading = true);
-    final authService = Provider.of<AuthService>(context, listen: false);
-    _authToken = authService.accessToken;
     await _fetchMessages();
     await _initPusher();
     setState(() => _isLoading = false);
   }
 
   Future<void> _fetchMessages() async {
-    // If conversationId is 0, it's a new conversation, so no messages to fetch
     if (widget.conversationId == 0) {
-      setState(() {
-        _messages.clear();
-      });
+      setState(() => _messages.clear());
       return;
     }
 
     try {
       final authService = Provider.of<AuthService>(context, listen: false);
-      final url = Uri.parse(
-          '$backendBaseUrl/api/chat/messages/${widget.conversationId}');
+      final url = Uri.parse('$backendBaseUrl/api/chat/messages/${widget.conversationId}');
       final response = await http.get(url, headers: {
         'Authorization': 'Bearer ${authService.accessToken}',
         'Accept': 'application/json',
       });
+
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
         setState(() {
           _messages.clear();
-          _messages.addAll(
-              data.map((json) => Message.fromJson(json, _currentUserId)));
+          _messages.addAll(data.map((json) => Message.fromJson(json, _currentUserId)));
         });
         _scrollToBottom();
       } else {
@@ -109,12 +102,13 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
 
   Future<void> _initPusher() async {
     _pusher = PusherChannelsFlutter();
-    final authService = Provider.of<AuthService>(context, listen: false);
+
     await _pusher.init(
-      apiKey: 'YOUR_PUSHER_KEY', // <-- Replace with your Pusher key
-      cluster: 'YOUR_PUSHER_CLUSTER', // <-- Replace with your Pusher cluster
+      apiKey: 'YOUR_PUSHER_KEY',
+      cluster: 'YOUR_PUSHER_CLUSTER',
       authEndpoint: '$backendBaseUrl/broadcasting/auth',
       onAuthorizer: (channelName, socketId, options) async {
+        final authService = Provider.of<AuthService>(context, listen: false);
         return {
           'headers': {
             'Authorization': 'Bearer ${authService.accessToken}',
@@ -122,25 +116,23 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
           }
         };
       },
-    onEvent: (event) {
-  if (event.eventName == 'App\\Events\\MessageSent') {
-    final data = jsonDecode(event.data);
-    final senderId = data['message']['sender_id'];
-
-    // ❌ Don't add if current user sent it (already added locally)
-    if (senderId == _currentUserId) return;
-
-    final msg = Message.fromJson(data['message'], _currentUserId);
-    setState(() {
-      _messages.add(msg);
-    });
-    _scrollToBottom();
-  }
-},
-
     );
-    await _pusher.subscribe(
-        channelName: 'private-conversation.${widget.conversationId}');
+
+    // ✅ FIX: Assign callback instead of invoking method
+    _pusher.onEvent = (PusherEvent event) {
+      if (event.data == null) return;
+      if (event.eventName == 'App\\Events\\MessageSent') {
+        final data = jsonDecode(event.data!);
+        final senderId = data['message']?['sender_id'];
+        if (senderId == _currentUserId) return;
+
+        final msg = Message.fromJson(data['message'], _currentUserId);
+        setState(() => _messages.add(msg));
+        _scrollToBottom();
+      }
+    };
+
+    await _pusher.subscribe(channelName: 'private-conversation.${widget.conversationId}');
     await _pusher.connect();
   }
 
@@ -157,7 +149,6 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
 
     final messageText = _messageController.text.trim();
     _messageController.clear();
-
     setState(() => _isLoading = true);
 
     try {
@@ -178,8 +169,6 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
 
       if (response.statusCode == 201) {
         final responseData = jsonDecode(response.body);
-
-        // Create a local message object
         final newMessage = Message(
           id: responseData['id'],
           text: messageText,
@@ -247,8 +236,7 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
                 children: [
                   Icon(Icons.bookmark, color: Colors.blue),
                   SizedBox(width: 12),
-                  Text('Saved Messages',
-                      style: TextStyle(fontWeight: FontWeight.bold)),
+                  Text('Saved Messages', style: TextStyle(fontWeight: FontWeight.bold)),
                 ],
               )
             : Row(
@@ -256,47 +244,29 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
                   CircleAvatar(
                     radius: 18,
                     backgroundImage: widget.userImage.isNotEmpty
-                        ? (widget.userImage.startsWith('http') ||
-                                widget.userImage.startsWith('/storage/')
+                        ? (widget.userImage.startsWith('http') || widget.userImage.startsWith('/storage/')
                             ? NetworkImage(getFullImageUrl(widget.userImage))
-                            : AssetImage(getFullImageUrl(widget.userImage))
-                                as ImageProvider)
-                        : const AssetImage(
-                            'assets/images/profiles/default_profile.png'),
-                    child: widget.userImage.isEmpty
-                        ? const Icon(Icons.person)
-                        : null,
+                            : AssetImage(getFullImageUrl(widget.userImage)) as ImageProvider)
+                        : const AssetImage('assets/images/profiles/default_profile.png'),
+                    child: widget.userImage.isEmpty ? const Icon(Icons.person) : null,
                   ),
                   const SizedBox(width: 12),
                   Text(
                     widget.userName,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                 ],
               ),
         actions: widget.userName == 'Saved Messages'
             ? null
             : [
-                IconButton(
-                  icon: const Icon(Icons.video_call),
-                  onPressed: () {},
-                ),
-                IconButton(
-                  icon: const Icon(Icons.call),
-                  onPressed: () {},
-                ),
-                IconButton(
-                  icon: const Icon(Icons.more_vert),
-                  onPressed: () {},
-                ),
+                IconButton(icon: const Icon(Icons.video_call), onPressed: () {}),
+                IconButton(icon: const Icon(Icons.call), onPressed: () {}),
+                IconButton(icon: const Icon(Icons.more_vert), onPressed: () {}),
               ],
       ),
       body: Column(
         children: [
-          // Error message at the top if there's an error
           if (_error != null)
             Container(
               width: double.infinity,
@@ -307,10 +277,7 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
                   Icon(Icons.error, color: Colors.red[700], size: 16),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: Text(
-                      _error!,
-                      style: TextStyle(color: Colors.red[700], fontSize: 12),
-                    ),
+                    child: Text(_error!, style: TextStyle(color: Colors.red[700], fontSize: 12)),
                   ),
                   IconButton(
                     icon: Icon(Icons.close, color: Colors.red[700], size: 16),
@@ -321,7 +288,6 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
                 ],
               ),
             ),
-          // Messages list
           Expanded(
             child: _isLoading && _messages.isEmpty
                 ? const Center(child: CircularProgressIndicator())
@@ -329,66 +295,44 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
                     ? const Center(
                         child: Text(
                           'No messages yet. Start the conversation!',
-                          style: TextStyle(
-                            color: Colors.grey,
-                            fontSize: 16,
-                          ),
+                          style: TextStyle(color: Colors.grey, fontSize: 16),
                         ),
                       )
                     : ListView.builder(
                         controller: _scrollController,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 8),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                         itemCount: _messages.length,
                         itemBuilder: (context, index) {
                           final message = _messages[index];
-                          final showTimestamp = index == _messages.length - 1 ||
-                              _messages[index + 1].isMe != message.isMe;
+                          final showTimestamp = index == _messages.length - 1 || _messages[index + 1].isMe != message.isMe;
 
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 8),
                             child: Row(
-                              mainAxisAlignment: message.isMe
-                                  ? MainAxisAlignment.end
-                                  : MainAxisAlignment.start,
+                              mainAxisAlignment: message.isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
                               children: [
-                                if (!message.isMe && showTimestamp)
-                                  const Text('Avatar'),
+                                if (!message.isMe && showTimestamp) const Text('Avatar'),
                                 Container(
                                   constraints: BoxConstraints(
-                                    maxWidth:
-                                        MediaQuery.of(context).size.width * 0.7,
+                                    maxWidth: MediaQuery.of(context).size.width * 0.7,
                                   ),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 12,
-                                  ),
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                                   decoration: BoxDecoration(
                                     color: message.isMe
-                                        ? Theme.of(context)
-                                            .primaryColor
-                                            .withAlpha(26)
-                                        : Colors.grey[200],
+                                        ? Theme.of(context).primaryColor.withAlpha(26)
+                                        : Colors.grey.shade200,
                                     borderRadius: BorderRadius.circular(20),
                                   ),
                                   child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
+                                    crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      Text(
-                                        message.text,
-                                        style: const TextStyle(fontSize: 16),
-                                      ),
+                                      Text(message.text, style: const TextStyle(fontSize: 16)),
                                       if (showTimestamp)
                                         Padding(
-                                          padding:
-                                              const EdgeInsets.only(top: 8),
+                                          padding: const EdgeInsets.only(top: 8),
                                           child: Text(
                                             '${message.timestamp.hour}:${message.timestamp.minute.toString().padLeft(2, '0')}',
-                                            style: const TextStyle(
-                                              fontSize: 12,
-                                              color: Colors.grey,
-                                            ),
+                                            style: const TextStyle(fontSize: 12, color: Colors.grey),
                                           ),
                                         ),
                                     ],
@@ -400,33 +344,19 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
                         },
                       ),
           ),
-          // Message input - always visible
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
               color: Theme.of(context).scaffoldBackgroundColor,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.grey.withOpacity(0.1),
-                  spreadRadius: 1,
-                  blurRadius: 3,
-                  offset: const Offset(0, -1),
-                ),
-              ],
+              boxShadow: [BoxShadow(color: Colors.grey.withAlpha(25), spreadRadius: 1, blurRadius: 3, offset: const Offset(0, -1))],
             ),
             child: Row(
               children: [
-                IconButton(
-                  icon: const Icon(Icons.add),
-                  onPressed: () {},
-                ),
+                IconButton(icon: const Icon(Icons.add), onPressed: () {}),
                 Expanded(
                   child: TextField(
                     controller: _messageController,
-                    decoration: const InputDecoration(
-                      hintText: 'Message...',
-                      border: InputBorder.none,
-                    ),
+                    decoration: const InputDecoration(hintText: 'Message...', border: InputBorder.none),
                     textCapitalization: TextCapitalization.sentences,
                     onSubmitted: (_) => _sendMessage(),
                     enabled: !_isLoading,
@@ -434,11 +364,7 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
                 ),
                 IconButton(
                   icon: _isLoading
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
+                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
                       : const Icon(Icons.send),
                   onPressed: _isLoading ? null : _sendMessage,
                 ),
