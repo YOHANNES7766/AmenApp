@@ -51,23 +51,25 @@ class ChatsTab extends StatelessWidget {
           itemCount: filteredConversations.length,
           itemBuilder: (context, index) {
             final conversation = filteredConversations[index];
-            final otherUser = conversation['user_one_id'] == currentUserId
-                ? conversation['user_two']
-                : conversation['user_one'];
 
-            final userId = otherUser['id'];
-            final userName = otherUser['name'];
+            // Use null-aware operators to avoid crashes
+            final otherUser = conversation['user_one_id'] == currentUserId
+                ? conversation['user_two'] ?? {}
+                : conversation['user_one'] ?? {};
+
+            final userId = otherUser['id'] ?? 0;
+            final userName = otherUser['name'] ?? 'User';
             final userImage = otherUser['profile_picture'];
             final lastMessage = conversation['last_message']?['message'] ?? 'No messages yet';
 
             return ListTile(
               leading: CircleAvatar(
-                backgroundImage: userImage != null && userImage.isNotEmpty
+                backgroundImage: (userImage != null && userImage.isNotEmpty)
                     ? NetworkImage(getFullImageUrl(userImage))
                     : const AssetImage('assets/images/profiles/default_profile.png')
                         as ImageProvider,
               ),
-              title: Text(userName ?? 'User'),
+              title: Text(userName),
               subtitle: Text(lastMessage),
               onTap: () {
                 Navigator.push(
@@ -76,7 +78,7 @@ class ChatsTab extends StatelessWidget {
                     builder: (_) => ChatConversationScreen(
                       userName: userName,
                       userImage: userImage,
-                      conversationId: conversation['id'],
+                      conversationId: conversation['id'] ?? 0,
                       receiverId: userId,
                       currentUserId: currentUserId,
                     ),
