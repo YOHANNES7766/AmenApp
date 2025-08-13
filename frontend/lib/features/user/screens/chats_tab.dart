@@ -51,8 +51,6 @@ class ChatsTab extends StatelessWidget {
           itemCount: filteredConversations.length,
           itemBuilder: (context, index) {
             final conversation = filteredConversations[index];
-
-            // Use null-aware operators to avoid crashes
             final otherUser = conversation['user_one_id'] == currentUserId
                 ? conversation['user_two'] ?? {}
                 : conversation['user_one'] ?? {};
@@ -64,10 +62,9 @@ class ChatsTab extends StatelessWidget {
 
             return ListTile(
               leading: CircleAvatar(
-                backgroundImage: (userImage != null && userImage.isNotEmpty)
+                backgroundImage: userImage != null && userImage.isNotEmpty
                     ? NetworkImage(getFullImageUrl(userImage))
-                    : const AssetImage('assets/images/profiles/default_profile.png')
-                        as ImageProvider,
+                    : const AssetImage('assets/images/profiles/default_profile.png') as ImageProvider,
               ),
               title: Text(userName),
               subtitle: Text(lastMessage),
@@ -77,7 +74,7 @@ class ChatsTab extends StatelessWidget {
                   MaterialPageRoute(
                     builder: (_) => ChatConversationScreen(
                       userName: userName,
-                      userImage: userImage,
+                      userImage: getFullImageUrl(userImage),
                       conversationId: conversation['id'] ?? 0,
                       receiverId: userId,
                       currentUserId: currentUserId,
