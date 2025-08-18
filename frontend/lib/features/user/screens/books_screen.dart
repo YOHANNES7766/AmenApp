@@ -543,56 +543,53 @@ class _BooksScreenState extends State<BooksScreen> {
                             const SizedBox(height: 2),
                             Row(
                               children: [
-                                SizedBox(
-                                  width: 50,
+                                Expanded(
+                                  flex: 2,
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
-                                    mainAxisAlignment: MainAxisAlignment.start,
                                     children: [
                                       ...List.generate(5, (i) {
-                                        return Padding(
-                                          padding: EdgeInsets.only(
-                                              right: i < 4 ? 0.5 : 0),
-                                          child: Icon(
-                                            Icons.star,
-                                            size: 7,
-                                            color: i < (book.rating).floor()
-                                                ? Colors.amber
-                                                : Colors.grey[300],
-                                          ),
+                                        return Icon(
+                                          Icons.star,
+                                          size: 6,
+                                          color: i < (book.rating).floor()
+                                              ? Colors.amber
+                                              : Colors.grey[300],
                                         );
                                       }),
-                                      const SizedBox(width: 1),
+                                      const SizedBox(width: 2),
                                       Text(
-                                        book.rating.toString(),
+                                        book.rating.toStringAsFixed(1),
                                         style: TextStyle(
                                           color: Colors.grey[600],
-                                          fontSize: 7,
+                                          fontSize: 6,
                                         ),
                                       ),
                                     ],
                                   ),
                                 ),
-                                const Spacer(),
-                                Flexible(
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  flex: 1,
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(
-                                      horizontal: 4,
+                                      horizontal: 3,
                                       vertical: 1,
                                     ),
                                     decoration: BoxDecoration(
                                       color: Colors.grey[200],
-                                      borderRadius: BorderRadius.circular(4),
+                                      borderRadius: BorderRadius.circular(3),
                                     ),
                                     child: Text(
                                       book.category,
                                       style: TextStyle(
                                         color: Colors.grey[700],
-                                        fontSize: 8,
+                                        fontSize: 7,
                                         fontWeight: FontWeight.bold,
                                       ),
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
+                                      textAlign: TextAlign.center,
                                     ),
                                   ),
                                 ),
