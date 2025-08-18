@@ -5,6 +5,8 @@ import 'package:pusher_channels_flutter/pusher_channels_flutter.dart';
 import 'package:provider/provider.dart';
 import '../../../shared/services/auth_service.dart';
 
+const String backendBaseUrl = 'https://amenapp-production.up.railway.app';
+
 class Message {
   final int id;
   final String text;
@@ -54,7 +56,7 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
   final ScrollController _scrollController = ScrollController();
   bool _isLoading = false;
   String? _error;
-  late PusherChannelsFlutter _pusher;
+  PusherChannelsFlutter? _pusher;
   late int _currentUserId;
 
   @override
@@ -103,44 +105,64 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
   Future<void> _initPusher() async {
     _pusher = PusherChannelsFlutter();
 
-    await _pusher.init(
-      apiKey: 'YOUR_PUSHER_KEY',
-      cluster: 'YOUR_PUSHER_CLUSTER',
-      authEndpoint: '$backendBaseUrl/broadcasting/auth',
+    await _pusher!.init(
+      apiKey: '4c83807283760dab1b1d',
+      cluster: 'mt1',
+      authEndpoint: '$backendBaseUrl/api/broadcasting/auth',
       onAuthorizer: (channelName, socketId, options) async {
         final authService = Provider.of<AuthService>(context, listen: false);
         return {
           'headers': {
             'Authorization': 'Bearer ${authService.accessToken}',
             'Accept': 'application/json',
+            'Content-Type': 'application/json',
           }
         };
       },
+      onEvent: _handlePusherEvent,
     );
 
-    // ✅ FIX: Assign callback instead of invoking method
-    _pusher.onEvent = (PusherEvent event) {
-      if (event.data == null) return;
-      if (event.eventName == 'App\\Events\\MessageSent') {
-        final data = jsonDecode(event.data!);
-        final senderId = data['message']?['sender_id'];
-        if (senderId == _currentUserId) return;
+    await _pusher!.connect();
+    
+    if (widget.conversationId != 0) {
+      await _pusher!.subscribe(channelName: 'private-conversation.${widget.conversationId}');
+    }
+  }
 
-        final msg = Message.fromJson(data['message'], _currentUserId);
+  void _handlePusherEvent(PusherEvent event) {
+    if (event.eventName != 'MessageSent') return;
+    
+    try {
+      final data = jsonDecode(event.data ?? '{}');
+      final message = data['message'];
+      if (message == null) return;
+      
+      final senderId = message['sender_id'];
+      final conversationId = message['conversation_id'];
+      
+      // Only add message if it's for this conversation and not from current user
+      if (conversationId == widget.conversationId && senderId != _currentUserId) {
+        final msg = Message.fromJson(message, _currentUserId);
         setState(() => _messages.add(msg));
         _scrollToBottom();
       }
-    };
-
-    await _pusher.subscribe(channelName: 'private-conversation.${widget.conversationId}');
-    await _pusher.connect();
+    } catch (e) {
+      debugPrint('Error parsing pusher event: $e');
+    }
   }
 
   @override
   void dispose() {
     _messageController.dispose();
     _scrollController.dispose();
-    _pusher.disconnect();
+    try {
+      if (_pusher != null && widget.conversationId != 0) {
+        _pusher!.unsubscribe(channelName: 'private-conversation.${widget.conversationId}');
+      }
+      _pusher?.disconnect();
+    } catch (e) {
+      debugPrint('Error during pusher cleanup: $e');
+    }
     super.dispose();
   }
 
@@ -169,11 +191,12 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
 
       if (response.statusCode == 201) {
         final responseData = jsonDecode(response.body);
+        final messageData = responseData['message'];
         final newMessage = Message(
-          id: responseData['id'],
+          id: messageData['id'],
           text: messageText,
           isMe: true,
-          timestamp: DateTime.now(),
+          timestamp: DateTime.parse(messageData['created_at']),
         );
 
         setState(() {
@@ -183,6 +206,14 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
         });
 
         _scrollToBottom();
+        
+        // Subscribe to conversation channel if this is a new conversation
+        if (widget.conversationId == 0) {
+          final newConversationId = responseData['conversation_id'];
+          if (newConversationId != null && _pusher != null) {
+            _pusher!.subscribe(channelName: 'private-conversation.$newConversationId');
+          }
+        }
       } else {
         setState(() {
           _error = 'Failed to send message: ${response.statusCode}';

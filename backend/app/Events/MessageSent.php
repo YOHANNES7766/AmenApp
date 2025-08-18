@@ -36,7 +36,7 @@ class MessageSent implements ShouldBroadcast
     public function broadcastOn(): Channel
     {
         // Use PrivateChannel to ensure only participants receive messages
-        return new PrivateChannel('conversation.' . $this->conversationId);
+        return new PrivateChannel('private-conversation.' . $this->conversationId);
     }
 
     /**
@@ -59,7 +59,7 @@ class MessageSent implements ShouldBroadcast
                 'sender_id'       => $this->message->sender_id,
                 'receiver_id'     => $this->message->receiver_id,
                 'conversation_id' => $this->message->conversation_id,
-                'created_at'      => $this->message->created_at->toISOString(), // ISO format for better frontend parsing
+                'created_at'      => $this->message->created_at->toDateTimeString(), // Match frontend expectations
                 'sender' => [
                     'id'              => $this->message->sender->id ?? null,
                     'name'            => $this->message->sender->name ?? null,

@@ -48,6 +48,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/chat/read/{message}', [\App\Http\Controllers\ChatController::class, 'markAsRead']);
     Route::get('/chat/approved-users', [\App\Http\Controllers\ChatController::class, 'getApprovedUsers']);
     Route::get('/chat/saved-messages', [\App\Http\Controllers\ChatController::class, 'getSavedMessages']);
+    
+    // Broadcasting authentication for mobile app
+    Route::post('/broadcasting/auth', function (Illuminate\Http\Request $request) {
+        return \Illuminate\Support\Facades\Broadcast::auth($request);
+    });
 });
 
 // Book routes
