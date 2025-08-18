@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../../../shared/services/auth_service.dart';
 import 'chat_conversation_screen.dart';
 
+const String backendBaseUrl = 'https://amenapp-production.up.railway.app';
+
 class ChatsTab extends StatelessWidget {
   final Future<List<Map<String, dynamic>>> conversationsFuture;
   final int currentUserId;

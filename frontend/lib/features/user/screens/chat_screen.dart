@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import 'package:pusher_channels_flutter/pusher_channels_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../shared/services/auth_service.dart';
 import 'chat_conversation_screen.dart';
@@ -65,14 +65,11 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
   Future<void> _loadChatData() async {
     final authService = Provider.of<AuthService>(context, listen: false);
     
-    // Initialize with cached data or empty list
-    _conversationsFuture = _cachedConversations.isNotEmpty 
-        ? Future.value(_cachedConversations)
-        : Future.value(<Map<String, dynamic>>[]);
-        
-    _allUsersFuture = _cachedUsers.isNotEmpty 
-        ? Future.value(_cachedUsers)
-        : Future.value(<Map<String, dynamic>>[]);
+    // Always show cached data immediately for instant loading
+    setState(() {
+      _conversationsFuture = Future.value(_cachedConversations);
+      _allUsersFuture = Future.value(_cachedUsers);
+    });
     
     // Fetch fresh data in background
     _fetchFreshData();
@@ -85,29 +82,34 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
     try {
       final authService = Provider.of<AuthService>(context, listen: false);
       
-      // Fetch conversations
-      final conversations = await authService.fetchConversations().timeout(
-        const Duration(seconds: 8),
-        onTimeout: () => _cachedConversations,
-      );
+      // Fetch both conversations and users in parallel for faster loading
+      final results = await Future.wait([
+        authService.fetchConversations().timeout(
+          const Duration(seconds: 5),
+          onTimeout: () => _cachedConversations,
+        ),
+        authService.fetchApprovedUsers().timeout(
+          const Duration(seconds: 5), 
+          onTimeout: () => _cachedUsers,
+        ),
+      ]);
       
-      // Fetch users
-      final users = await authService.fetchApprovedUsers().timeout(
-        const Duration(seconds: 8), 
-        onTimeout: () => _cachedUsers,
-      );
+      final conversations = results[0] as List<Map<String, dynamic>>;
+      final users = results[1] as List<Map<String, dynamic>>;
       
-      // Update cache and UI if data changed
-      if (mounted && (conversations != _cachedConversations || users != _cachedUsers)) {
+      // Update cache and UI
+      if (mounted) {
         setState(() {
           _cachedConversations = conversations;
           _cachedUsers = users;
           _conversationsFuture = Future.value(conversations);
           _allUsersFuture = Future.value(users);
         });
+        debugPrint('✅ Updated conversations: ${conversations.length}, users: ${users.length}');
       }
     } catch (e) {
       debugPrint('❌ Error fetching fresh data: $e');
+      // Keep showing cached data on error
     } finally {
       _isRefreshing = false;
     }
@@ -259,67 +261,86 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
                 color: Colors.yellow[50],
                 padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
                 child: const Text('Connecting for real-time updates...',
+                    style: TextStyle(fontSize: 12)),
+              ),
+            Expanded(
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  // Chats Tab
+                  RefreshIndicator(
+                    onRefresh: _onRefresh,
+                    child: ChatsTab(
+                      conversationsFuture: _conversationsFuture ?? Future.value(<Map<String, dynamic>>[]),
+                      currentUserId: nonNullUserId,
+                      authService: authService,
+                    ),
+                  ),
+                  // Contacts Tab
+                  RefreshIndicator(
+                    onRefresh: _onRefresh,
+                    child: FutureBuilder<List<Map<String, dynamic>>>(
+                      future: _allUsersFuture,
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState == ConnectionState.waiting) {
+                          return const Center(child: CircularProgressIndicator());
+                        } else if (snapshot.hasError) {
+                          return Center(child: Text('Error: ${snapshot.error}'));
+                        }
 
-  final senderId = message['sender_id'];
-  final receiverId = message['receiver_id'];
-  final convId = message['conversation_id'];
-                        return const Center(child: CircularProgressIndicator());
-                      } else if (snapshot.hasError) {
-                        return Center(child: Text('Error: ${snapshot.error}'));
-                      }
+                        final users = snapshot.data!
+                            .where((u) => u['id'] != nonNullUserId)
+                            .toList();
 
-                      final users = snapshot.data!
-                          .where((u) => u['id'] != nonNullUserId)
-                          .toList();
+                        return ListView.builder(
+                          itemCount: users.length,
+                          itemBuilder: (context, index) {
+                            final user = users[index];
+                            final userName = user['name'] ?? 'User';
+                            final userImage = user['profile_picture'] ?? '';
+                            final userId = user['id'];
 
-                      return ListView.builder(
-                        itemCount: users.length,
-                        itemBuilder: (context, index) {
-                          final user = users[index];
-                          final userName = user['name'] ?? 'User';
-                          final userImage = user['profile_picture'] ?? '';
-                          final userId = user['id'];
-
-                          return ListTile(
-                            leading: CircleAvatar(
-                              backgroundImage: getProfileImage(userImage),
-                              child: userImage.isEmpty ? const Icon(Icons.person) : null,
-                            ),
-                            title: Text(userName),
-                            onTap: () async {
-                              // find conversationId if exists
-                              final existingConv = await (_conversationsFuture ?? Future.value(<Map<String, dynamic>>[])).then(
-                                (convs) => convs.firstWhere(
-                                  (conv) =>
-                                      (conv['user_one_id'] == nonNullUserId &&
-                                          conv['user_two_id'] == userId) ||
-                                      (conv['user_two_id'] == nonNullUserId &&
-                                          conv['user_one_id'] == userId),
-                                  orElse: () => <String, dynamic>{},
-                                ),
-                              );
-
-                              final conversationId = existingConv['id'] ?? 0;
-
-                              await Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => ChatConversationScreen(
-                                    userName: userName,
-                                    userImage: userImage,
-                                    conversationId: conversationId,
-                                    receiverId: userId,
-                                    currentUserId: nonNullUserId,
+                            return ListTile(
+                              leading: CircleAvatar(
+                                backgroundImage: getProfileImage(userImage),
+                                child: userImage.isEmpty ? const Icon(Icons.person) : null,
+                              ),
+                              title: Text(userName),
+                              onTap: () async {
+                                // find conversationId if exists
+                                final existingConv = await (_conversationsFuture ?? Future.value(<Map<String, dynamic>>[])).then(
+                                  (convs) => convs.firstWhere(
+                                    (conv) =>
+                                        (conv['user_one_id'] == nonNullUserId &&
+                                            conv['user_two_id'] == userId) ||
+                                        (conv['user_two_id'] == nonNullUserId &&
+                                            conv['user_one_id'] == userId),
+                                    orElse: () => <String, dynamic>{},
                                   ),
-                                ),
-                              );
+                                );
 
-                              _refreshConversations();
-                            },
-                          );
-                        },
-                      );
-                    },
+                                final conversationId = existingConv['id'] ?? 0;
+
+                                await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => ChatConversationScreen(
+                                      userName: userName,
+                                      userImage: userImage,
+                                      conversationId: conversationId,
+                                      receiverId: userId,
+                                      currentUserId: nonNullUserId,
+                                    ),
+                                  ),
+                                );
+
+                                _refreshConversations();
+                              },
+                            );
+                          },
+                        );
+                      },
+                    ),
                   ),
                 ],
               ),
