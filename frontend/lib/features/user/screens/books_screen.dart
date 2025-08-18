@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:provider/provider.dart';
+import '../../../core/constants/api_constants.dart';
+import '../../../shared/services/auth_service.dart';
 
 class Book {
   final int id;
@@ -40,6 +43,9 @@ class _BooksScreenState extends State<BooksScreen> {
   List<Book> _books = [];
   String? _selectedLanguage;
   XFile? _coverImageFile;
+  int _currentPage = 1;
+  bool _hasMorePages = true;
+  final ScrollController _scrollController = ScrollController();
 
   final List<String> _categories = [
     'Books',
@@ -53,42 +59,100 @@ class _BooksScreenState extends State<BooksScreen> {
   void initState() {
     super.initState();
     _fetchBooks();
+    _scrollController.addListener(_onScroll);
   }
 
-  Future<void> _fetchBooks() async {
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+      if (!_isLoading && _hasMorePages) {
+        _loadMoreBooks();
+      }
+    }
+  }
+
+  Future<void> _fetchBooks({bool refresh = false}) async {
+    if (refresh) {
+      setState(() {
+        _currentPage = 1;
+        _books.clear();
+        _hasMorePages = true;
+      });
+    }
+    
     setState(() => _isLoading = true);
     try {
+      final authService = Provider.of<AuthService>(context, listen: false);
       final dio = Dio();
-      final response =
-          await dio.get('https://your-production-domain.com/api/books');
+      
+      final queryParams = {
+        'page': _currentPage.toString(),
+        'per_page': '20',
+        if (_selectedCategoryIndex == 0) 'approved': 'true',
+        if (_selectedCategoryIndex == 1) 'approved': 'false',
+        if (_searchController.text.isNotEmpty) 'search': _searchController.text,
+        if (_selectedLanguage != null) 'language': _selectedLanguage!,
+      };
+      
+      final uri = Uri.parse(ApiConstants.books).replace(queryParameters: queryParams);
+      
+      final response = await dio.get(
+        uri.toString(),
+        options: Options(headers: {
+          'Authorization': 'Bearer ${authService.accessToken}',
+          'Accept': 'application/json',
+        }),
+      );
+      
       if (response.statusCode == 200) {
-        final List data = response.data;
+        final responseData = response.data;
+        final List bookData = responseData['data'] ?? [];
+        final newBooks = bookData
+            .map((b) => Book(
+                  id: b['id'],
+                  title: b['title'],
+                  author: b['author'],
+                  imageUrl: b['cover_url'] ??
+                      b['pdf_url'] ??
+                      'assets/images/books/default_book.png',
+                  rating: 4.5, // Placeholder
+                  isApproved: b['approved'] is bool
+                      ? b['approved']
+                      : b['approved'] == 1,
+                  category: b['category'] ?? 'Uncategorized',
+                  language: b['language'] ?? 'Unknown',
+                ))
+            .toList();
+        
         setState(() {
-          _books = data
-              .map((b) => Book(
-                    id: b['id'],
-                    title: b['title'],
-                    author: b['author'],
-                    imageUrl: b['cover_url'] ??
-                        b['pdf_url'] ??
-                        'assets/images/books/default_book.png',
-                    rating: 4.5, // Placeholder
-                    isApproved: b['approved'] is bool
-                        ? b['approved']
-                        : b['approved'] == 1,
-                    category: b['category'] ?? 'Uncategorized',
-                    language: b['language'] ?? 'Unknown',
-                  ))
-              .toList();
+          if (refresh || _currentPage == 1) {
+            _books = newBooks;
+          } else {
+            _books.addAll(newBooks);
+          }
+          _hasMorePages = responseData['has_more'] ?? false;
         });
       }
     } catch (e) {
-      debugPrint('Error fetching books: \\${e.toString()}');
-      setState(() {
-        _books = [];
-      });
+      debugPrint('Error fetching books: ${e.toString()}');
+      if (refresh || _currentPage == 1) {
+        setState(() {
+          _books = [];
+        });
+      }
     }
     setState(() => _isLoading = false);
+  }
+
+  Future<void> _loadMoreBooks() async {
+    if (!_hasMorePages || _isLoading) return;
+    _currentPage++;
+    await _fetchBooks();
   }
 
   List<String> get _allLanguages {
@@ -98,33 +162,8 @@ class _BooksScreenState extends State<BooksScreen> {
   }
 
   List<Book> get filteredBooks {
-    final query = _searchController.text.toLowerCase();
-    List<Book> filtered = _books;
-    if (query.isNotEmpty) {
-      filtered = filtered.where((book) {
-        return book.title.toLowerCase().contains(query) ||
-            book.author.toLowerCase().contains(query);
-      }).toList();
-    }
-    // Tab filtering
-    if (_selectedCategoryIndex == 0) {
-      // All Books: only approved
-      filtered = filtered.where((b) => b.isApproved).toList();
-    } else if (_selectedCategoryIndex == 1) {
-      // Pending: only not approved
-      filtered = filtered.where((b) => !b.isApproved).toList();
-    } else if (_selectedCategoryIndex == 2) {
-      // Categories: could add category filter UI here
-    } else if (_selectedCategoryIndex == 3) {
-      // Authors: could add author filter UI here
-    } else if (_selectedCategoryIndex == 4) {
-      // Languages: filter by selected language
-      if (_selectedLanguage != null) {
-        filtered =
-            filtered.where((b) => b.language == _selectedLanguage).toList();
-      }
-    }
-    return filtered;
+    // Server-side filtering is now handled in _fetchBooks
+    return _books;
   }
 
   void _showLanguagePicker() async {
@@ -145,6 +184,7 @@ class _BooksScreenState extends State<BooksScreen> {
       setState(() {
         _selectedLanguage = selected;
       });
+      _fetchBooks(refresh: true);
     }
   }
 
@@ -292,10 +332,12 @@ class _BooksScreenState extends State<BooksScreen> {
                                           filename: bookFile!.name),
                                   });
                                   try {
+                                    final authService = Provider.of<AuthService>(context, listen: false);
                                     final response = await dio.post(
-                                      'https://your-production-domain.com/api/books/upload',
+                                      ApiConstants.bookUpload,
                                       data: formData,
                                       options: Options(headers: {
+                                        'Authorization': 'Bearer ${authService.accessToken}',
                                         'Accept': 'application/json'
                                       }),
                                     );
@@ -305,7 +347,7 @@ class _BooksScreenState extends State<BooksScreen> {
                                               content: Text(
                                                   'Book uploaded successfully!')));
                                       Navigator.pop(context);
-                                      _fetchBooks();
+                                      _fetchBooks(refresh: true);
                                     } else {
                                       ScaffoldMessenger.of(context)
                                           .showSnackBar(SnackBar(
@@ -361,7 +403,14 @@ class _BooksScreenState extends State<BooksScreen> {
                       Expanded(
                         child: TextField(
                           controller: _searchController,
-                          onChanged: (value) => setState(() {}),
+                          onChanged: (value) {
+                            // Debounce search
+                            Future.delayed(const Duration(milliseconds: 500), () {
+                              if (_searchController.text == value) {
+                                _fetchBooks(refresh: true);
+                              }
+                            });
+                          },
                           decoration: const InputDecoration(
                             hintText: 'Search books...',
                             prefixIcon: Icon(Icons.search),
@@ -387,8 +436,12 @@ class _BooksScreenState extends State<BooksScreen> {
                             setState(() {
                               _selectedCategoryIndex = index;
                               if (index != 4) _selectedLanguage = null;
-                              if (index == 4) _showLanguagePicker();
                             });
+                            if (index == 4) {
+                              _showLanguagePicker();
+                            } else {
+                              _fetchBooks(refresh: true);
+                            }
                           },
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
@@ -423,6 +476,7 @@ class _BooksScreenState extends State<BooksScreen> {
                 // Books Grid
                 Expanded(
                   child: GridView.builder(
+                    controller: _scrollController,
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     gridDelegate:
                         const SliverGridDelegateWithFixedCrossAxisCount(
@@ -431,8 +485,16 @@ class _BooksScreenState extends State<BooksScreen> {
                       crossAxisSpacing: 12,
                       mainAxisSpacing: 16,
                     ),
-                    itemCount: filteredBooks.length,
+                    itemCount: filteredBooks.length + (_hasMorePages ? 1 : 0),
                     itemBuilder: (context, index) {
+                      if (index >= filteredBooks.length) {
+                        return const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(16.0),
+                            child: CircularProgressIndicator(),
+                          ),
+                        );
+                      }
                       final book = filteredBooks[index];
                       return GestureDetector(
                         onTap: () {

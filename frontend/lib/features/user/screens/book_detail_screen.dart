@@ -4,8 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import '../../../shared/services/auth_service.dart';
 
-const String backendBaseUrl =
-    'https://your-production-domain.com'; // Update as needed
+import '../../../core/constants/api_constants.dart';
 
 class BookDetailScreen extends StatefulWidget {
   final String title;
@@ -48,7 +47,7 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
     try {
       final authService = Provider.of<AuthService>(context, listen: false);
       final url = Uri.parse(
-          '$backendBaseUrl/api/book-comments?book_id=${widget.bookId}');
+          '${ApiConstants.bookComments}?book_id=${widget.bookId}');
       final response = await http.get(url, headers: {
         'Authorization': 'Bearer ${authService.accessToken}',
         'Accept': 'application/json',
@@ -82,7 +81,7 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
     try {
       print('Posting comment for bookId: ${widget.bookId}');
       final authService = Provider.of<AuthService>(context, listen: false);
-      final url = Uri.parse('$backendBaseUrl/api/book-comments');
+      final url = Uri.parse(ApiConstants.bookComments);
       final response = await http.post(
         url,
         headers: {
@@ -114,7 +113,7 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
   Future<void> _loadNote() async {
     try {
       final authService = Provider.of<AuthService>(context, listen: false);
-      final url = Uri.parse('$backendBaseUrl/api/book-notes/${widget.bookId}');
+      final url = Uri.parse('${ApiConstants.bookNotes}/${widget.bookId}');
       final response = await http.get(url, headers: {
         'Authorization': 'Bearer ${authService.accessToken}',
         'Accept': 'application/json',
@@ -136,7 +135,7 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
     try {
       print('Saving note for bookId: ${widget.bookId}');
       final authService = Provider.of<AuthService>(context, listen: false);
-      final url = Uri.parse('$backendBaseUrl/api/book-notes');
+      final url = Uri.parse(ApiConstants.bookNotes);
       final response = await http.post(
         url,
         headers: {

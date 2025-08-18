@@ -13,12 +13,37 @@ class BookController extends Controller
     public function index(Request $request)
     {
         $approved = $request->query('approved');
+        $page = $request->query('page', 1);
+        $perPage = $request->query('per_page', 20);
+        $search = $request->query('search');
+        $category = $request->query('category');
+        $language = $request->query('language');
+        
         $query = Book::query();
+        
         if ($approved !== null) {
             $query->where('approved', filter_var($approved, FILTER_VALIDATE_BOOLEAN));
         }
-        $books = $query->get();
-        foreach ($books as $book) {
+        
+        if ($search) {
+            $query->where(function($q) use ($search) {
+                $q->where('title', 'like', '%' . $search . '%')
+                  ->orWhere('author', 'like', '%' . $search . '%');
+            });
+        }
+        
+        if ($category) {
+            $query->where('category', $category);
+        }
+        
+        if ($language) {
+            $query->where('language', $language);
+        }
+        
+        $query->orderBy('created_at', 'desc');
+        $books = $query->paginate($perPage, ['*'], 'page', $page);
+        
+        foreach ($books->items() as $book) {
             if ($book->pdf_path) {
                 $book->pdf_url = url('/storage/books/' . $book->pdf_path);
             }
@@ -29,7 +54,15 @@ class BookController extends Controller
                 $book->cover_url = url($book->cover_url);
             }
         }
-        return response()->json($books);
+        
+        return response()->json([
+            'data' => $books->items(),
+            'current_page' => $books->currentPage(),
+            'last_page' => $books->lastPage(),
+            'per_page' => $books->perPage(),
+            'total' => $books->total(),
+            'has_more' => $books->hasMorePages()
+        ]);
     }
 
     /**
