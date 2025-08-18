@@ -33,8 +33,8 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
-  late Future<List<Map<String, dynamic>>> _conversationsFuture; // Chats
-  late Future<List<Map<String, dynamic>>> _allUsersFuture;     // Contacts
+  Future<List<Map<String, dynamic>>>? _conversationsFuture; // Chats
+  Future<List<Map<String, dynamic>>>? _allUsersFuture;     // Contacts
 
   late PusherChannelsFlutter _pusher;
   final Set<int> _subscribedConversationIds = {};
@@ -65,13 +65,14 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
   Future<void> _loadChatData() async {
     final authService = Provider.of<AuthService>(context, listen: false);
     
-    // Show cached data immediately if available
-    if (_cachedConversations.isNotEmpty) {
-      _conversationsFuture = Future.value(_cachedConversations);
-    }
-    if (_cachedUsers.isNotEmpty) {
-      _allUsersFuture = Future.value(_cachedUsers);
-    }
+    // Initialize with cached data or empty list
+    _conversationsFuture = _cachedConversations.isNotEmpty 
+        ? Future.value(_cachedConversations)
+        : Future.value(<Map<String, dynamic>>[]);
+        
+    _allUsersFuture = _cachedUsers.isNotEmpty 
+        ? Future.value(_cachedUsers)
+        : Future.value(<Map<String, dynamic>>[]);
     
     // Fetch fresh data in background
     _fetchFreshData();
@@ -150,7 +151,12 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
 
   Future<void> _subscribeToExistingConversations() async {
     try {
-      final convList = await _conversationsFuture.timeout(const Duration(seconds: 5));
+      if (_conversationsFuture == null) {
+        debugPrint('⚠️ Conversations future not initialized yet');
+        return;
+      }
+      
+      final convList = await _conversationsFuture!.timeout(const Duration(seconds: 5));
       for (final conv in convList) {
         final id = conv['id'];
         if (id is int) {
@@ -253,27 +259,10 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
                 color: Colors.yellow[50],
                 padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
                 child: const Text('Connecting for real-time updates...',
-                    style: TextStyle(fontSize: 12)),
-              ),
-            Expanded(
-              child: TabBarView(
-                controller: _tabController,
-                children: [
-                  // Chats tab with pull-to-refresh
-                  RefreshIndicator(
-                    onRefresh: _onRefresh,
-                    child: ChatsTab(
-                      conversationsFuture: _conversationsFuture,
-                      currentUserId: nonNullUserId,
-                      authService: authService,
-                    ),
-                  ),
 
-                  // Contacts tab
-                  FutureBuilder<List<Map<String, dynamic>>>(
-                    future: _allUsersFuture,
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
+  final senderId = message['sender_id'];
+  final receiverId = message['receiver_id'];
+  final convId = message['conversation_id'];
                         return const Center(child: CircularProgressIndicator());
                       } else if (snapshot.hasError) {
                         return Center(child: Text('Error: ${snapshot.error}'));
@@ -299,7 +288,7 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
                             title: Text(userName),
                             onTap: () async {
                               // find conversationId if exists
-                              final existingConv = await _conversationsFuture.then(
+                              final existingConv = await (_conversationsFuture ?? Future.value(<Map<String, dynamic>>[])).then(
                                 (convs) => convs.firstWhere(
                                   (conv) =>
                                       (conv['user_one_id'] == nonNullUserId &&
