@@ -32,7 +32,7 @@ class ChatsTab extends StatelessWidget {
     return FutureBuilder<List<Map<String, dynamic>>>(
       future: conversationsFuture,
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
+        if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
           return const Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -76,14 +76,31 @@ class ChatsTab extends StatelessWidget {
           );
         }
 
-        final filteredConversations = snapshot.data!.where((conversation) {
+        final conversations = snapshot.data ?? [];
+        final filteredConversations = conversations.where((conversation) {
           final otherUserId = conversation['user_one_id'] == currentUserId
               ? conversation['user_two_id']
               : conversation['user_one_id'];
           return otherUserId != currentUserId;
         }).toList();
 
+        if (filteredConversations.isEmpty) {
+          return const Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.chat_bubble_outline, size: 64, color: Colors.grey),
+                SizedBox(height: 16),
+                Text('No conversations yet', style: TextStyle(fontSize: 18)),
+                SizedBox(height: 8),
+                Text('Start a conversation from the Contacts tab', style: TextStyle(color: Colors.grey)),
+              ],
+            ),
+          );
+        }
+
         return ListView.builder(
+          physics: const AlwaysScrollableScrollPhysics(),
           itemCount: filteredConversations.length,
           itemBuilder: (context, index) {
             final conversation = filteredConversations[index];

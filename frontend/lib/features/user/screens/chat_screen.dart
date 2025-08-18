@@ -43,6 +43,11 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
   String? _authToken;
 
   bool _pusherInitialized = false;
+  
+  // Cache for instant loading
+  List<Map<String, dynamic>> _cachedConversations = [];
+  List<Map<String, dynamic>> _cachedUsers = [];
+  bool _isRefreshing = false;
 
   @override
   void initState() {
@@ -58,24 +63,52 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
   }
 
   Future<void> _loadChatData() async {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    
+    // Show cached data immediately if available
+    if (_cachedConversations.isNotEmpty) {
+      _conversationsFuture = Future.value(_cachedConversations);
+    }
+    if (_cachedUsers.isNotEmpty) {
+      _allUsersFuture = Future.value(_cachedUsers);
+    }
+    
+    // Fetch fresh data in background
+    _fetchFreshData();
+  }
+  
+  Future<void> _fetchFreshData() async {
+    if (_isRefreshing) return;
+    _isRefreshing = true;
+    
     try {
       final authService = Provider.of<AuthService>(context, listen: false);
-      _conversationsFuture = authService.fetchConversations().timeout(
-        const Duration(seconds: 10),
-        onTimeout: () {
-          debugPrint('⚠️ Conversations fetch timeout');
-          return <Map<String, dynamic>>[];
-        },
+      
+      // Fetch conversations
+      final conversations = await authService.fetchConversations().timeout(
+        const Duration(seconds: 8),
+        onTimeout: () => _cachedConversations,
       );
-      _allUsersFuture = authService.fetchApprovedUsers().timeout(
-        const Duration(seconds: 10),
-        onTimeout: () {
-          debugPrint('⚠️ Users fetch timeout');
-          return <Map<String, dynamic>>[];
-        },
+      
+      // Fetch users
+      final users = await authService.fetchApprovedUsers().timeout(
+        const Duration(seconds: 8), 
+        onTimeout: () => _cachedUsers,
       );
+      
+      // Update cache and UI if data changed
+      if (mounted && (conversations != _cachedConversations || users != _cachedUsers)) {
+        setState(() {
+          _cachedConversations = conversations;
+          _cachedUsers = users;
+          _conversationsFuture = Future.value(conversations);
+          _allUsersFuture = Future.value(users);
+        });
+      }
     } catch (e) {
-      debugPrint('❌ Error loading chat data: $e');
+      debugPrint('❌ Error fetching fresh data: $e');
+    } finally {
+      _isRefreshing = false;
     }
   }
 
@@ -165,17 +198,11 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
   }
 
   void _refreshConversations() {
-    final authService = Provider.of<AuthService>(context, listen: false);
-    setState(() {
-      _conversationsFuture = authService.fetchConversations();
-    });
-
-    _conversationsFuture.then((convs) {
-      for (final conv in convs) {
-        final id = conv['id'];
-        if (id is int) _subscribeToConversationChannel(id);
-      }
-    }).catchError((_) {});
+    _fetchFreshData();
+  }
+  
+  Future<void> _onRefresh() async {
+    await _fetchFreshData();
   }
 
   @override
@@ -232,11 +259,14 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
               child: TabBarView(
                 controller: _tabController,
                 children: [
-                  // Chats tab
-                  ChatsTab(
-                    conversationsFuture: _conversationsFuture,
-                    currentUserId: nonNullUserId,
-                    authService: authService,
+                  // Chats tab with pull-to-refresh
+                  RefreshIndicator(
+                    onRefresh: _onRefresh,
+                    child: ChatsTab(
+                      conversationsFuture: _conversationsFuture,
+                      currentUserId: nonNullUserId,
+                      authService: authService,
+                    ),
                   ),
 
                   // Contacts tab
