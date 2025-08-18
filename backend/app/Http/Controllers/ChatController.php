@@ -71,11 +71,7 @@ class ChatController extends Controller
             ? $conversation->userTwo
             : $conversation->userOne;
 
-        return response()->json([
-            'conversation_id' => $conversation->id,
-            'other_user'      => $otherUser,
-            'messages'        => $conversation->messages,
-        ]);
+        return response()->json($conversation->messages);
     }
 
     /**

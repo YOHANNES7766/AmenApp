@@ -60,15 +60,13 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
   }
 
   Future<void> _preparePusherAndSubscribe() async {
-    final authService = Provider.of<AuthService>(context, listen: false);
-    _authToken = authService.accessToken;
-
+    // Initialize Pusher first without blocking UI
     _pusher = PusherChannelsFlutter();
 
     await _pusher.init(
       apiKey: '4c83807283760dab1b1d',
       cluster: 'mt1',
-      authEndpoint: '$backendBaseUrl/broadcasting/auth',
+      authEndpoint: '$backendBaseUrl/api/broadcasting/auth',
       onAuthorizer: (channelName, socketId, options) async {
         return {
           'headers': {
@@ -82,9 +80,18 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
     );
 
     await _pusher.connect();
+    
+    setState(() {
+      _pusherInitialized = true;
+    });
 
+    // Subscribe to channels asynchronously after UI is ready
+    _subscribeToExistingConversations();
+  }
+
+  Future<void> _subscribeToExistingConversations() async {
     try {
-      final convList = await Provider.of<AuthService>(context, listen: false).fetchConversations();
+      final convList = await _conversationsFuture;
       for (final conv in convList) {
         final id = conv['id'];
         if (id is int) await _subscribeToConversationChannel(id);
@@ -92,10 +99,6 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
     } catch (e) {
       debugPrint('Error fetching conversations for pusher subscriptions: $e');
     }
-
-    setState(() {
-      _pusherInitialized = true;
-    });
   }
 
   Future<void> _subscribeToConversationChannel(int conversationId) async {

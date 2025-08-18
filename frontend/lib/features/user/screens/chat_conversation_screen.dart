@@ -5,8 +5,6 @@ import 'package:pusher_channels_flutter/pusher_channels_flutter.dart';
 import 'package:provider/provider.dart';
 import '../../../shared/services/auth_service.dart';
 
-const String backendBaseUrl = 'https://amenapp-production.up.railway.app';
-
 class Message {
   final int id;
   final String text;
