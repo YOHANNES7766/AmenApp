@@ -1,6 +1,6 @@
 class ApiConstants {
   // Update this to your actual backend URL
-  static const String baseUrl = 'http://localhost:8000'; // Change to your Laravel backend URL
+  static const String baseUrl = 'http://10.0.2.2:8000'; // Android emulator localhost
   
   // API endpoints
   static const String booksEndpoint = '/api/books';

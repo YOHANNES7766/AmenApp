@@ -251,31 +251,35 @@ class _BooksScreenState extends State<BooksScreen> {
                       ],
                     ),
                     const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        ElevatedButton.icon(
-                          onPressed: () async {
-                            final result = await FilePicker.platform.pickFiles(
-                              type: FileType.custom,
-                              allowedExtensions: ['pdf', 'epub'],
-                            );
-                            if (result != null && result.files.isNotEmpty) {
-                              final file = result.files.first;
-                              final ext = file.extension?.toLowerCase();
-                              setState(() {
-                                bookFile = file;
-                                pickedBookType = (ext == 'pdf')
-                                    ? 'pdf'
-                                    : (ext == 'epub' ? 'epub' : null);
-                              });
-                            }
-                          },
-                          icon: const Icon(Icons.upload_file),
-                          label: Text(bookFile != null
-                              ? bookFile!.name
-                              : 'Pick PDF or EPUB'),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: () async {
+                          final result = await FilePicker.platform.pickFiles(
+                            type: FileType.custom,
+                            allowedExtensions: ['pdf', 'epub'],
+                          );
+                          if (result != null && result.files.isNotEmpty) {
+                            final file = result.files.first;
+                            final ext = file.extension?.toLowerCase();
+                            setState(() {
+                              bookFile = file;
+                              pickedBookType = (ext == 'pdf')
+                                  ? 'pdf'
+                                  : (ext == 'epub' ? 'epub' : null);
+                            });
+                          }
+                        },
+                        icon: const Icon(Icons.upload_file),
+                        label: Flexible(
+                          child: Text(
+                            bookFile != null
+                                ? bookFile!.name
+                                : 'Pick PDF or EPUB',
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
-                      ],
+                      ),
                     ),
                   ],
                 ),
