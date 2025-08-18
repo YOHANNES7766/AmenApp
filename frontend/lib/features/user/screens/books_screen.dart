@@ -271,13 +271,13 @@ class _BooksScreenState extends State<BooksScreen> {
                           }
                         },
                         icon: const Icon(Icons.upload_file),
-                        label: Flexible(
-                          child: Text(
-                            bookFile != null
-                                ? bookFile!.name
-                                : 'Pick PDF or EPUB',
-                            overflow: TextOverflow.ellipsis,
-                          ),
+                        label: Text(
+                          bookFile != null
+                              ? (bookFile!.name.length > 20 
+                                  ? '${bookFile!.name.substring(0, 20)}...'
+                                  : bookFile!.name)
+                              : 'Pick PDF or EPUB',
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ),
