@@ -33,11 +33,47 @@ class ChatsTab extends StatelessWidget {
       future: conversationsFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
+          return const Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('Loading conversations...', style: TextStyle(color: Colors.grey)),
+              ],
+            ),
+          );
         } else if (snapshot.hasError) {
-          return Center(child: Text('Error: ${snapshot.error}'));
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.error, color: Colors.red, size: 48),
+                SizedBox(height: 16),
+                Text('Failed to load conversations', style: TextStyle(fontSize: 16)),
+                SizedBox(height: 8),
+                Text('${snapshot.error}', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: () => authService.fetchConversations(),
+                  child: Text('Retry'),
+                ),
+              ],
+            ),
+          );
         } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          return const Center(child: Text('No conversations yet.'));
+          return const Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.chat_bubble_outline, size: 64, color: Colors.grey),
+                SizedBox(height: 16),
+                Text('No conversations yet', style: TextStyle(fontSize: 18)),
+                SizedBox(height: 8),
+                Text('Start a conversation from the Contacts tab', style: TextStyle(color: Colors.grey)),
+              ],
+            ),
+          );
         }
 
         final filteredConversations = snapshot.data!.where((conversation) {

@@ -53,51 +53,80 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
     currentUserId = authService.currentUserId;
     _authToken = authService.accessToken;
 
-    _conversationsFuture = authService.fetchConversations();
-    _allUsersFuture = authService.fetchApprovedUsers();
-
+    _loadChatData();
     _preparePusherAndSubscribe();
   }
 
+  Future<void> _loadChatData() async {
+    try {
+      final authService = Provider.of<AuthService>(context, listen: false);
+      _conversationsFuture = authService.fetchConversations().timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          debugPrint('⚠️ Conversations fetch timeout');
+          return <Map<String, dynamic>>[];
+        },
+      );
+      _allUsersFuture = authService.fetchApprovedUsers().timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          debugPrint('⚠️ Users fetch timeout');
+          return <Map<String, dynamic>>[];
+        },
+      );
+    } catch (e) {
+      debugPrint('❌ Error loading chat data: $e');
+    }
+  }
+
   Future<void> _preparePusherAndSubscribe() async {
-    // Initialize Pusher first without blocking UI
-    _pusher = PusherChannelsFlutter();
+    try {
+      _pusher = PusherChannelsFlutter();
 
-    await _pusher.init(
-      apiKey: '4c83807283760dab1b1d',
-      cluster: 'mt1',
-      authEndpoint: '$backendBaseUrl/api/broadcasting/auth',
-      onAuthorizer: (channelName, socketId, options) async {
-        return {
-          'headers': {
-            'Authorization': 'Bearer ${_authToken ?? ''}',
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-          }
-        };
-      },
-      onEvent: _handlePusherEvent,
-    );
+      await _pusher.init(
+        apiKey: '4c83807283760dab1b1d',
+        cluster: 'mt1',
+        authEndpoint: '$backendBaseUrl/api/broadcasting/auth',
+        onAuthorizer: (channelName, socketId, options) async {
+          return {
+            'headers': {
+              'Authorization': 'Bearer ${_authToken ?? ''}',
+              'Accept': 'application/json',
+              'Content-Type': 'application/json',
+            }
+          };
+        },
+        onEvent: _handlePusherEvent,
+      ).timeout(const Duration(seconds: 5));
 
-    await _pusher.connect();
-    
-    setState(() {
-      _pusherInitialized = true;
-    });
+      await _pusher.connect().timeout(const Duration(seconds: 5));
+      debugPrint('✅ Pusher connected successfully');
+      
+      setState(() {
+        _pusherInitialized = true;
+      });
 
-    // Subscribe to channels asynchronously after UI is ready
-    _subscribeToExistingConversations();
+      _subscribeToExistingConversations();
+    } catch (e) {
+      debugPrint('❌ Pusher connection failed: $e');
+      setState(() {
+        _pusherInitialized = true; // Allow UI to continue
+      });
+    }
   }
 
   Future<void> _subscribeToExistingConversations() async {
     try {
-      final convList = await _conversationsFuture;
+      final convList = await _conversationsFuture.timeout(const Duration(seconds: 5));
       for (final conv in convList) {
         final id = conv['id'];
-        if (id is int) await _subscribeToConversationChannel(id);
+        if (id is int) {
+          await _subscribeToConversationChannel(id);
+        }
       }
+      debugPrint('✅ Subscribed to ${_subscribedConversationIds.length} conversations');
     } catch (e) {
-      debugPrint('Error fetching conversations for pusher subscriptions: $e');
+      debugPrint('❌ Error subscribing to conversations: $e');
     }
   }
 
