@@ -74,6 +74,90 @@ class BookController extends Controller
     }
 
     /**
+     * Upload a new book with files
+     */
+    public function upload(Request $request)
+    {
+        // Validate the request
+        $request->validate([
+            'title' => 'required|string|max:255',
+            'author' => 'required|string|max:255',
+            'category' => 'required|string|max:100',
+            'language' => 'required|string|max:50',
+            'description' => 'nullable|string|max:1000',
+            'cover' => 'required|image|mimes:jpeg,png,jpg,gif|max:5120', // 5MB max
+            'pdf' => 'nullable|file|mimes:pdf|max:51200', // 50MB max
+            'epub' => 'nullable|file|mimes:epub|max:51200', // 50MB max
+        ]);
+
+        // Ensure at least one book file is provided
+        if (!$request->hasFile('pdf') && !$request->hasFile('epub')) {
+            return response()->json(['error' => 'Either PDF or EPUB file is required'], 422);
+        }
+
+        try {
+            // Handle cover image upload
+            $coverPath = null;
+            if ($request->hasFile('cover')) {
+                $coverFile = $request->file('cover');
+                $coverName = time() . '_cover_' . $coverFile->getClientOriginalName();
+                $coverPath = $coverFile->storeAs('covers', $coverName, 'public');
+            }
+
+            // Handle PDF upload
+            $pdfPath = null;
+            if ($request->hasFile('pdf')) {
+                $pdfFile = $request->file('pdf');
+                $pdfName = time() . '_' . $pdfFile->getClientOriginalName();
+                $pdfPath = $pdfFile->storeAs('books', $pdfName, 'public');
+            }
+
+            // Handle EPUB upload
+            $epubPath = null;
+            if ($request->hasFile('epub')) {
+                $epubFile = $request->file('epub');
+                $epubName = time() . '_' . $epubFile->getClientOriginalName();
+                $epubPath = $epubFile->storeAs('books', $epubName, 'public');
+            }
+
+            // Create book record
+            $book = Book::create([
+                'title' => $request->title,
+                'author' => $request->author,
+                'category' => $request->category,
+                'language' => $request->language,
+                'description' => $request->description,
+                'cover_url' => $coverPath ? '/storage/' . $coverPath : null,
+                'pdf_path' => $pdfPath,
+                'epub_path' => $epubPath,
+                'approved' => false, // Books need approval by default
+                'user_id' => auth()->id(),
+            ]);
+
+            // Transform paths to full URLs for response (same as index method)
+            if ($book->pdf_path) {
+                $book->pdf_url = url('/storage/books/' . $book->pdf_path);
+            }
+            if ($book->epub_path) {
+                $book->epub_url = url('/storage/books/' . $book->epub_path);
+            }
+            if ($book->cover_url && !str_starts_with($book->cover_url, 'http')) {
+                $book->cover_url = url($book->cover_url);
+            }
+
+            return response()->json([
+                'message' => 'Book uploaded successfully',
+                'book' => $book
+            ], 201);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Upload failed: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * Display the specified resource.
      */
     public function show(Book $book)

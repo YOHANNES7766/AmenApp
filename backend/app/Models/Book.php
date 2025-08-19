@@ -16,5 +16,6 @@ class Book extends Model
         'description',
         'approved',
         'cover_url',
+        'user_id',
     ];
 }

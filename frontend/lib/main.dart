@@ -5,6 +5,7 @@ import 'features/user/screens/login_screen.dart';
 import 'features/user/screens/register_screen.dart';
 import 'features/user/screens/home_screen.dart';
 import 'features/admin/screens/admin_home_screen.dart';
+import 'features/books/providers/books_provider.dart';
 import 'shared/services/auth_service.dart';
 import 'shared/services/theme_service.dart';
 import 'core/localization/app_localizations.dart';
@@ -66,6 +67,7 @@ Future<void> main() async {
         ChangeNotifierProvider.value(value: themeService),
         ChangeNotifierProvider(
             create: (_) => LanguageChangeNotifier()..setLocale(locale)),
+        ChangeNotifierProvider(create: (_) => BooksProvider()),
       ],
       child: const MyApp(),
     ),
