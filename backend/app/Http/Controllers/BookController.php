@@ -158,6 +158,20 @@ class BookController extends Controller
     }
 
     /**
+     * Serve uploaded files directly
+     */
+    public function serveFile($path)
+    {
+        $filePath = storage_path('app/public/' . $path);
+        
+        if (!file_exists($filePath)) {
+            abort(404);
+        }
+        
+        return response()->file($filePath);
+    }
+
+    /**
      * Display the specified resource.
      */
     public function show(Book $book)

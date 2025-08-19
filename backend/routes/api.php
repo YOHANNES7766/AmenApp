@@ -55,12 +55,16 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 });
 
-// Book routes
+// Book routes (protected)
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/books', [BookController::class, 'index']);
-    Route::get('/books/{id}/download', [BookController::class, 'download']);
     Route::post('/books/upload', [BookController::class, 'upload']);
+    Route::get('/books/{id}/download', [BookController::class, 'download']);
 });
+
+// Public route for serving uploaded files
+Route::get('/storage/{path}', [BookController::class, 'serveFile'])->where('path', '.*');
+
 Route::middleware(['auth:sanctum', 'admin'])->group(function () {
     Route::patch('/books/{id}/approve', [\App\Http\Controllers\BookController::class, 'approve']);
 });
