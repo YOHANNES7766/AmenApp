@@ -80,7 +80,7 @@ class _BooksScreenState extends State<BooksScreen> {
     } else {
       // Update filters based on category
       bool? approved;
-      if (index == 0) approved = null;  // All Books (both approved and pending)
+      if (index == 0) approved = true;  // All Books (approved only)
       if (index == 1) approved = false; // Pending only
       
       booksProvider.updateFilters(

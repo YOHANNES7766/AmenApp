@@ -136,10 +136,10 @@ class BookController extends Controller
 
             // Transform paths to full URLs for response (same as index method)
             if ($book->pdf_path) {
-                $book->pdf_url = url('/storage/books/' . $book->pdf_path);
+                $book->pdf_url = url('/storage/' . $book->pdf_path);
             }
             if ($book->epub_path) {
-                $book->epub_url = url('/storage/books/' . $book->epub_path);
+                $book->epub_url = url('/storage/' . $book->epub_path);
             }
             if ($book->cover_url && !str_starts_with($book->cover_url, 'http')) {
                 $book->cover_url = url($book->cover_url);
